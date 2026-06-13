@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Bistrot des Halles — Console v6</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+        :root {
+            --burgundy: #601424;
+            --burgundy-light: #7a1a2e;
+            --cream: #ede2cf;
+            --taupe: #b2a48f;
+            --text: #2d2325;
+            --admin-bg: #f3f4f6;
+            --success: #10b981;
+            --danger: #ef4444;
+            --info: #3b82f6;
+            --warning: #f59e0b;
+            --card-bg: #ffffff;
+            --border: #e5e7eb;
+            --muted: #6b7280;
+            --header-bg: #111827;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--admin-bg); color: #1f2937; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* ── LOGIN SCREEN ─────────────────────────────── */
+        #login-screen {
+            position: fixed; inset: 0; z-index: 9999;
+            background: var(--header-bg);
+            display: flex; align-items: center; justify-content: center;
+        }
+        .login-box {
+            background: #1f2937; border-radius: 16px; padding: 40px;
+            width: 360px; box-shadow: 0 25px 60px rgba(0,0,0,0.5);
+            border: 1px solid #374151;
+        }
+        .login-logo {
+            width: 60px; height: 60px; border-radius: 50%;
+            background: var(--burgundy); display: flex; align-items: center; justify-content: center;
+            font-family: 'Playfair Display', serif; color: white; font-size: 1.4rem;
+            margin: 0 auto 20px;
+        }
+        .login-box h2 { font-family: 'Playfair Display', serif; color: var(--cream); text-align: center; margin-bottom: 5px; font-size: 1.4rem; }
+        .login-box p { color: #9ca3af; text-align: center; font-size: 0.82rem; margin-bottom: 28px; }
+        .login-field { margin-bottom: 14px; }
+        .login-field label { display: block; font-size: 0.8rem; font-weight: 600; color: #9ca3af; margin-bottom: 5px; }
+        .login-field input { width: 100%; padding: 11px 14px; background: #111827; border: 1px solid #374151; border-radius: 8px; color: white; font-size: 0.9rem; outline: none; transition: border 0.2s; }
+        .login-field input:focus { border-color: var(--burgundy); }
+        .login-error { background: #450a0a; border: 1px solid #991b1b; color: #fca5a5; padding: 10px; border-radius: 6px; font-size: 0.82rem; margin-bottom: 12px; display: none; }
+        .login-btn { width: 100%; padding: 12px; background: var(--burgundy); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: background 0.2s; margin-top: 4px; }
+        .login-btn:hover { background: var(--burgundy-light); }
+        .login-hint { text-align: center; font-size: 0.75rem; color: #4b5563; margin-top: 16px; }
+
+        /* ── HEADER ───────────────────────────────────── */
+        .demo-header {
+            background: var(--header-bg); color: white; padding: 12px 24px;
+            display: flex; justify-content: space-between; align-items: center; z-index: 10; flex-shrink: 0;
+        }
+        .header-left { display: flex; align-items: center; gap: 14px; }
+        .header-brand { font-family: 'Playfair Display', serif; color: var(--cream); font-size: 1.15rem; }
+        .header-badge { font-size: 0.72rem; background: var(--burgundy); color: white; padding: 3px 8px; border-radius: 20px; font-weight: 700; }
+        .header-right { display: flex; align-items: center; gap: 12px; }
+        .header-user { font-size: 0.82rem; color: #9ca3af; }
+        .btn-logout { background: #374151; color: #d1d5db; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; transition: background 0.2s; }
+        .btn-logout:hover { background: #4b5563; }
+
+        /* ── NOTIFICATION TOAST ───────────────────────── */
+        #toast-container { position: fixed; top: 70px; right: 20px; z-index: 8888; display: flex; flex-direction: column; gap: 8px; }
+        .toast {
+            background: #1f2937; color: white; padding: 14px 18px; border-radius: 10px;
+            border-left: 4px solid var(--success); box-shadow: 0 8px 20px rgba(0,0,0,0.25);
+            font-size: 0.85rem; max-width: 300px; animation: slideIn 0.3s ease;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .toast.alert { border-left-color: var(--warning); }
+        @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes slideOut { from { opacity: 1; } to { opacity: 0; transform: translateX(120%); } }
+
+        /* ── LAYOUT ───────────────────────────────────── */
+        .dashboard-container { display: flex; flex: 1; overflow: hidden; }
+        .admin-panel { width: 55%; display: flex; flex-direction: column; background: #f9fafb; border-right: 1px solid var(--border); }
+
+        /* ── TABS ─────────────────────────────────────── */
+        .admin-tabs { display: flex; background: #e5e7eb; border-bottom: 1px solid #d1d5db; flex-shrink: 0; }
+        .tab-btn { flex: 1; padding: 12px 6px; border: none; background: none; font-weight: 600; font-size: 0.78rem; color: #4b5563; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .tab-btn:hover { background: #f3f4f6; }
+        .tab-btn.active { background: white; color: var(--burgundy); border-bottom: 3px solid var(--burgundy); }
+        .tab-content { padding: 18px; overflow-y: auto; flex: 1; display: none; }
+        .tab-content.active { display: block; }
+
+        /* ── CARDS & FORMS ────────────────────────────── */
+        .card { background: white; padding: 18px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 14px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        h2 { font-size: 1rem; color: #111827; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
+        .form-group { margin-bottom: 11px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.82rem; color: #4b5563; }
+        .form-control { width: 100%; padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.88rem; font-family: inherit; outline: none; transition: border 0.2s; }
+        .form-control:focus { border-color: var(--burgundy); }
+        .btn-submit { color: white; width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; transition: 0.2s; font-size: 0.88rem; }
+        .btn-submit:hover { opacity: 0.88; }
+
+        /* ── STATS GRID ───────────────────────────────── */
+        .period-selector { display: flex; gap: 4px; margin-bottom: 14px; background: #f3f4f6; padding: 4px; border-radius: 8px; }
+        .btn-period { flex: 1; padding: 7px 4px; border: none; background: none; font-size: 0.75rem; font-weight: 600; border-radius: 6px; cursor: pointer; }
+        .btn-period.active { background: white; box-shadow: 0 1px 3px rgba(0,0,0,0.1); color: var(--burgundy); }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 14px; }
+        .stat-card { background: #f9fafb; border: 1px solid var(--border); padding: 11px; border-radius: 8px; text-align: center; }
+        .stat-card label { display: block; font-size: 0.72rem; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+        .stat-card span { display: block; font-size: 1.25rem; font-weight: bold; color: var(--burgundy); }
+
+        /* ── CHART ────────────────────────────────────── */
+        .chart-wrap { background: #f9fafb; border: 1px solid var(--border); border-radius: 8px; padding: 14px; margin-bottom: 14px; }
+        .chart-title { font-size: 0.8rem; font-weight: 700; color: #374151; margin-bottom: 10px; }
+        canvas#sales-chart { width: 100% !important; height: 130px !important; }
+
+        .rank-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .rank-box { padding: 10px; border-radius: 6px; font-size: 0.82rem; }
+        .rank-box.top { background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+        .rank-box.flop { background: #fef2f2; border: 1px solid #fca5a5; color: #991b1b; }
+        .rank-list { list-style: none; margin-top: 6px; }
+        .rank-list li { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px dashed rgba(0,0,0,0.1); font-size: 0.78rem; }
+
+        /* ── INVENTORY ────────────────────────────────── */
+        .item-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 12px; border-bottom: 1px solid #f3f4f6; font-size: 0.85rem; gap: 8px; }
+        .item-row.hidden-item { background: #f9fafb; opacity: 0.6; }
+        .item-info { flex: 1; min-width: 0; }
+        .item-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-sub { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+        .action-icons { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+        .btn-icon { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 3px; border-radius: 4px; transition: background 0.15s; }
+        .btn-icon:hover { background: #f3f4f6; }
+
+        /* Inline edit */
+        .inline-edit-form { display: none; background: #f9fafb; border-top: 1px solid var(--border); padding: 10px 12px; gap: 8px; flex-wrap: wrap; }
+        .inline-edit-form.open { display: flex; }
+        .inline-edit-form input { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 0.82rem; font-family: inherit; }
+        .inline-edit-form input:focus { outline: none; border-color: var(--burgundy); }
+        .btn-save-inline { background: var(--success); color: white; border: none; padding: 6px 12px; border-radius: 5px; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+        .btn-cancel-inline { background: #e5e7eb; color: #374151; border: none; padding: 6px 10px; border-radius: 5px; font-size: 0.8rem; cursor: pointer; }
+
+        /* ── PDF ──────────────────────────────────────── */
+        .pdf-check-item { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+
+        /* ── QR CODE TAB ──────────────────────────────── */
+        #qr-display { text-align: center; padding: 20px 0; }
+        #qr-display canvas, #qr-display img { margin: 0 auto; border-radius: 8px; }
+        .qr-url-display { background: #f3f4f6; border: 1px dashed #d1d5db; border-radius: 6px; padding: 10px; font-size: 0.8rem; color: #374151; word-break: break-all; margin: 12px 0; font-family: monospace; }
+
+        /* ── PHONE PREVIEW ────────────────────────────── */
+        .preview-panel { width: 45%; background: #2d3748; display: flex; align-items: center; justify-content: center; padding: 15px; }
+        .smartphone { width: 340px; height: 700px; background: var(--cream); border-radius: 35px; box-shadow: 0 20px 40px rgba(0,0,0,0.4); border: 12px solid #000; overflow: hidden; position: relative; display: flex; flex-direction: column; }
+        .phone-inner { display: flex; flex-direction: column; height: 100%; overflow-y: auto; }
+
+        /* SAS */
+        .sas-screen { padding: 36px 20px; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100%; text-align: center; }
+        .sas-logo { width: 64px; height: 64px; background: var(--burgundy); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-size: 1.6rem; margin-bottom: 14px; font-family: 'Playfair Display', serif; }
+        .sas-screen h1 { font-family: 'Playfair Display', serif; color: var(--burgundy); font-size: 1.55rem; margin-bottom: 4px; }
+        .sas-screen p { font-size: 0.82rem; color: #6e5d60; margin-bottom: 26px; font-style: italic; }
+        .sas-menu-btn { width: 100%; background: white; border: 1px solid var(--taupe); padding: 16px; border-radius: 10px; font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; color: var(--burgundy); cursor: pointer; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; transition: background 0.15s; }
+        .sas-menu-btn:hover { background: #f5ede0; }
+
+        /* MENU SCREEN */
+        .menu-screen { display: none; flex-direction: column; min-height: 100%; }
+        .btn-back-sas { background: var(--burgundy); color: white; border: none; padding: 10px 15px; font-size: 0.78rem; cursor: pointer; font-weight: bold; flex-shrink: 0; }
+        .menu-main-title-band { background-color: var(--taupe); padding: 12px 10px; text-align: center; flex-shrink: 0; }
+        .menu-main-title-band h2 { font-family: 'Playfair Display', serif; color: var(--burgundy); font-size: 1.2rem; font-weight: 700; text-transform: uppercase; letter-spacing: 2px; }
+        .phone-scroll-content { flex: 1; padding: 14px 16px; overflow-y: auto; }
+        .category-block { margin-bottom: 18px; }
+        .category-name { font-family: 'Playfair Display', serif; color: var(--burgundy); font-size: 1.1rem; font-weight: 700; margin-bottom: 9px; border-bottom: 1px solid rgba(96, 20, 36, 0.2); padding-bottom: 3px; }
+        .product-item { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 13px; padding-bottom: 9px; border-bottom: 1px dashed rgba(0,0,0,0.05); }
+        .product-info { flex: 1; padding-right: 8px; }
+        .product-meta { display: flex; justify-content: space-between; font-family: 'Playfair Display', serif; font-weight: 700; font-size: 0.9rem; color: var(--burgundy); }
+        .product-desc { font-size: 0.72rem; color: #55484a; margin-top: 2px; font-style: italic; line-height: 1.3; }
+
+        /* PANIER ─────────────────────────────────────── */
+        .btn-order-trigger { background: var(--burgundy); color: white; border: none; padding: 5px 9px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; cursor: pointer; white-space: nowrap; }
+        .cart-bar { background: var(--burgundy); color: white; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; cursor: pointer; }
+        .cart-bar-label { font-size: 0.82rem; font-weight: 700; }
+        .cart-badge { background: white; color: var(--burgundy); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 800; }
+        .cart-panel { background: white; border-top: 1px solid var(--cream); padding: 14px; display: none; flex-shrink: 0; max-height: 260px; overflow-y: auto; }
+        .cart-panel.open { display: block; }
+        .cart-line { display: flex; justify-content: space-between; align-items: center; padding: 7px 0; border-bottom: 1px dashed #e5e0d8; font-size: 0.82rem; }
+        .cart-line-name { flex: 1; }
+        .cart-qty-ctrl { display: flex; align-items: center; gap: 6px; }
+        .btn-qty { background: #f3f4f6; border: 1px solid #d1d5db; width: 22px; height: 22px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 700; line-height: 1; }
+        .cart-total { display: flex; justify-content: space-between; font-weight: 800; padding-top: 10px; color: var(--burgundy); font-size: 0.95rem; }
+        .btn-send-order { width: 100%; margin-top: 10px; background: var(--success); color: white; border: none; padding: 10px; border-radius: 6px; font-weight: 700; font-size: 0.85rem; cursor: pointer; }
+
+        /* ── PRINT ────────────────────────────────────── */
+        @media print {
+            body { background: white; display: block; height: auto; overflow: visible; }
+            .demo-header, .admin-panel, .preview-panel, #login-screen, #toast-container { display: none !important; }
+            .print-container {
+                display: block !important; width: 100%; background: var(--cream) !important; color: var(--text) !important;
+                padding: 40px; min-height: 100vh; -webkit-print-color-adjust: exact; print-color-adjust: exact;
+            }
+            .print-menu-section { margin-bottom: 40px; page-break-inside: avoid; }
+            .print-title { font-family: 'Playfair Display', serif; color: var(--burgundy); font-size: 2rem; border-bottom: 2px solid var(--taupe); padding-bottom: 5px; margin-bottom: 20px; text-transform: uppercase; }
+            .print-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; }
+        }
+        .print-container { display: none; }
+    </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     LOGIN SCREEN
+═══════════════════════════════════════════════════ -->
+<div id="login-screen">
+    <div class="login-box">
+        <div class="login-logo">BH</div>
+        <h2>Le Bistrot des Halles</h2>
+        <p>Accès réservé à l'administration</p>
+        <div id="login-error" class="login-error">Identifiants incorrects. Réessayez.</div>
+        <div class="login-field">
+            <label>Identifiant</label>
+            <input type="text" id="login-user" placeholder="admin" autocomplete="username">
+        </div>
+        <div class="login-field">
+            <label>Mot de passe</label>
+            <input type="password" id="login-pass" placeholder="••••••••" autocomplete="current-password">
+        </div>
+        <button class="login-btn" onclick="doLogin()">Accéder au tableau de bord</button>
+        <p class="login-hint">Accès réservé au personnel</p>
+    </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     TOASTS
+═══════════════════════════════════════════════════ -->
+<div id="toast-container"></div>
+
+<!-- ═══════════════════════════════════════════════════
+     HEADER
+═══════════════════════════════════════════════════ -->
+<header class="demo-header">
+    <div class="header-left">
+        <span class="header-brand">Le Bistrot des Halles</span>
+        <span class="header-badge">Console v6</span>
+    </div>
+    <div class="header-right">
+        <span class="header-user" id="header-username"></span>
+        <button class="btn-logout" onclick="doLogout()">Déconnexion</button>
+    </div>
+</header>
+
+<div class="dashboard-container">
+
+    <!-- ════ ADMIN PANEL ════ -->
+    <div class="admin-panel">
+        <nav class="admin-tabs">
+            <button class="tab-btn active" onclick="switchTab(event,'tab-dashboard')">📈 Perf.</button>
+            <button class="tab-btn" onclick="switchTab(event,'tab-carte')">⚙️ Carte</button>
+            <button class="tab-btn" onclick="switchTab(event,'tab-inventory')">📦 Stocks</button>
+            <button class="tab-btn" onclick="switchTab(event,'tab-pdf')">🖨️ PDF</button>
+            <button class="tab-btn" onclick="switchTab(event,'tab-qr')">📱 QR Code</button>
+        </nav>
+
+        <!-- ── TAB 1 : PERFORMANCES ── -->
+        <div id="tab-dashboard" class="tab-content active">
+            <div class="card">
+                <h2>📅 Analyse Temporelle des Ventes</h2>
+                <div class="period-selector">
+                    <button class="btn-period active" onclick="changePeriod('today',this)">Auj.</button>
+                    <button class="btn-period" onclick="changePeriod('week',this)">7j</button>
+                    <button class="btn-period" onclick="changePeriod('month',this)">Mois</button>
+                    <button class="btn-period" onclick="changePeriod('year',this)">2026</button>
+                    <button class="btn-period" onclick="changePeriod('custom',this)">🗓️</button>
+                </div>
+                <div id="custom-date-inputs" style="display:none; gap:10px; margin-bottom:12px; flex-wrap:wrap;">
+                    <div style="flex:1;min-width:120px;"><label class="form-group" style="font-size:0.75rem;font-weight:600;">Du :</label><input type="date" id="date-start" class="form-control" onchange="calculatePerformanceStats()"></div>
+                    <div style="flex:1;min-width:120px;"><label class="form-group" style="font-size:0.75rem;font-weight:600;">Au :</label><input type="date" id="date-end" class="form-control" onchange="calculatePerformanceStats()"></div>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card"><label>Chiffre d'affaires</label><span id="stat-ca">0.00€</span></div>
+                    <div class="stat-card"><label>Commandes</label><span id="stat-orders">0</span></div>
+                    <div class="stat-card"><label>Panier moyen</label><span id="stat-panier">0.00€</span></div>
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="chart-wrap">
+                    <div class="chart-title">📊 Ventes par article (période sélectionnée)</div>
+                    <canvas id="sales-chart"></canvas>
+                </div>
+                <div class="rank-grid">
+                    <div class="rank-box top">🎯 <strong>Top ventes</strong><ul class="rank-list" id="list-popular"></ul></div>
+                    <div class="rank-box flop">⚠️ <strong>Flop / À optimiser</strong><ul class="rank-list" id="list-weak"></ul></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── TAB 2 : CARTE ── -->
+        <div id="tab-carte" class="tab-content">
+            <div class="card">
+                <h2>📁 Créer un type de menu</h2>
+                <div class="form-group"><input type="text" id="add-menu-name" class="form-control" placeholder="Ex : Formule Ardoise du Midi"></div>
+                <button class="btn-submit" style="background:var(--burgundy);" onclick="adminCreateNewMenu()">Déployer le menu</button>
+            </div>
+            <div class="card">
+                <h2>🗂️ Ajouter une catégorie</h2>
+                <div class="form-group"><label>Menu parent :</label><select id="select-menu-parent" class="form-control"></select></div>
+                <div class="form-group"><input type="text" id="add-cat-name" class="form-control" placeholder="Ex : Vins Blancs Moelleux"></div>
+                <button class="btn-submit" style="background:var(--info);" onclick="adminCreateNewCategory()">Créer la catégorie</button>
+            </div>
+            <div class="card">
+                <h2>🍷 Publier un article</h2>
+                <div class="form-group"><label>Catégorie :</label><select id="select-cat-parent" class="form-control"></select></div>
+                <div style="display:flex; gap:8px; margin-bottom:10px;">
+                    <input type="text" id="add-prod-name" class="form-control" placeholder="Nom de l'article" style="flex:2;">
+                    <input type="number" id="add-prod-price" class="form-control" placeholder="Prix €" style="flex:1;" step="0.10" min="0">
+                </div>
+                <div class="form-group"><input type="text" id="add-prod-desc" class="form-control" placeholder="Ingrédients, allergènes, description..."></div>
+                <button class="btn-submit" style="background:var(--success);" onclick="adminCreateProduct()">Mettre en ligne</button>
+            </div>
+        </div>
+
+        <!-- ── TAB 3 : STOCKS ── -->
+        <div id="tab-inventory" class="tab-content">
+            <div class="card">
+                <h2>📦 Inventaire & disponibilités</h2>
+                <p style="font-size:0.78rem; color:var(--muted); margin-bottom:12px;">✏️ Modifier · 👁️ Masquer du menu client · 🗑️ Supprimer</p>
+                <div id="admin-product-inventory" style="border:1px solid var(--border); border-radius:8px; max-height:480px; overflow-y:auto;"></div>
+            </div>
+        </div>
+
+        <!-- ── TAB 4 : PDF ── -->
+        <div id="tab-pdf" class="tab-content">
+            <div class="card">
+                <h2>🖨️ Générer un PDF de carte</h2>
+                <p style="font-size:0.78rem; color:var(--muted); margin-bottom:14px;">Choisissez ce qui apparaît sur le document imprimé.</p>
+                <div style="margin-bottom:14px;">
+                    <label style="font-weight:700;display:block;margin-bottom:8px;">Mode :</label>
+                    <label style="margin-right:16px;"><input type="radio" name="pdf-mode" value="all" checked onchange="togglePdfSelectors(false)"> Toute la carte</label>
+                    <label><input type="radio" name="pdf-mode" value="custom" onchange="togglePdfSelectors(true)"> Sélection personnalisée</label>
+                </div>
+                <div id="pdf-custom-selectors" style="display:none; border:1px solid var(--border); padding:12px; border-radius:6px; max-height:200px; overflow-y:auto; margin-bottom:14px;"></div>
+                <button class="btn-submit" style="background:var(--burgundy); font-size:0.95rem; padding:12px;" onclick="generateCustomPDF()">🖨️ Imprimer / Exporter PDF</button>
+            </div>
+        </div>
+
+        <!-- ── TAB 5 : QR CODE ── -->
+        <div id="tab-qr" class="tab-content">
+            <div class="card">
+                <h2>📱 QR Code — Accès Menu Client</h2>
+                <p style="font-size:0.78rem; color:var(--muted); margin-bottom:14px;">Générez un QR code à imprimer sur vos tables ou à afficher en vitrine.</p>
+                <div class="form-group">
+                    <label>URL du menu (lien de votre page en ligne) :</label>
+                    <input type="text" id="qr-url-input" class="form-control" placeholder="https://votresite.fr/menu" value="https://bistrot-des-halles.fr/menu">
+                </div>
+                <div class="form-group">
+                    <label>Taille :</label>
+                    <select id="qr-size" class="form-control">
+                        <option value="160">Petit (160×160)</option>
+                        <option value="220" selected>Moyen (220×220)</option>
+                        <option value="300">Grand (300×300)</option>
+                    </select>
+                </div>
+                <button class="btn-submit" style="background:var(--burgundy);" onclick="generateQRCode()">Générer le QR Code</button>
+                <div id="qr-display" style="margin-top:18px; display:none;">
+                    <div id="qr-canvas-wrap"></div>
+                    <div class="qr-url-display" id="qr-url-label"></div>
+                    <button class="btn-submit" style="background:var(--success); margin-top:6px;" onclick="downloadQR()">⬇️ Télécharger PNG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ════ PHONE PREVIEW ════ -->
+    <div class="preview-panel">
+        <div class="smartphone">
+            <div class="phone-inner" id="phone-inner">
+                <!-- SAS -->
+                <div class="sas-screen" id="view-sas">
+                    <div class="sas-logo">BH</div>
+                    <h1>Le Bistrot des Halles</h1>
+                    <p>Commandez directement depuis votre table</p>
+                    <div id="sas-buttons-container" style="width:100%;"></div>
+                </div>
+                <!-- MENU -->
+                <div class="menu-screen" id="view-menu">
+                    <button class="btn-back-sas" onclick="navigateToSas()">← Choix du menu</button>
+                    <div class="menu-main-title-band"><h2 id="phone-menu-title"></h2></div>
+                    <div class="phone-scroll-content" id="phone-items-container"></div>
+                    <!-- CART -->
+                    <div class="cart-bar" onclick="toggleCart()">
+                        <span class="cart-bar-label">🛒 Mon panier</span>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <span id="cart-total-label" style="font-size:0.82rem;font-weight:700;">0.00€</span>
+                            <div class="cart-badge" id="cart-count">0</div>
+                        </div>
+                    </div>
+                    <div class="cart-panel" id="cart-panel">
+                        <div id="cart-lines"></div>
+                        <div class="cart-total"><span>Total</span><span id="cart-grand-total">0.00€</span></div>
+                        <button class="btn-send-order" onclick="sendCartOrder()">✅ Envoyer la commande</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="print-container" id="strict-print-zone"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+//  STATE & STORAGE
+// ═══════════════════════════════════════════════════════
+const STORAGE_KEY = 'bistrot_v6_state';
+
+const DEFAULT_STATE = {
+    menus: [
+        { id: "m_vins", name: "La Carte des Vins" },
+        { id: "m_cocktails", name: "Les Cocktails & Boissons" }
+    ],
+    categories: [
+        { id: "c_rouges", menuId: "m_vins", name: "Vins Rouges" },
+        { id: "c_blancs", menuId: "m_vins", name: "Vins Blancs" },
+        { id: "c_creations", menuId: "m_cocktails", name: "Créations du Chef" },
+        { id: "c_softs", menuId: "m_cocktails", name: "Softs Frais" }
+    ],
+    products: [
+        { id: "p1", catId: "c_rouges", name: "Saint-Émilion Grand Cru", price: 7.50, desc: "Notes boisées, finale veloutée.", isHidden: false },
+        { id: "p2", catId: "c_blancs", name: "Chablis Artisanal", price: 6.00, desc: "Minéral, frais, idéal fruits de mer.", isHidden: false },
+        { id: "p3", catId: "c_creations", name: "Bistrot Mule Signature", price: 9.50, desc: "Vodka infusée au basilic, Ginger Beer, citron vert.", isHidden: false },
+        { id: "p4", catId: "c_softs", name: "Limonade Maison Menthe", price: 4.00, desc: "Citrons pressés minute, sirop de canne bio.", isHidden: false },
+        { id: "p5", catId: "c_creations", name: "Spritz des Halles", price: 8.50, desc: "Apérol revisité, liqueur de rhubarbe, Prosecco.", isHidden: true }
+    ],
+    orders: [
+        { id: "o1", productId: "p1", price: 7.50, date: "2026-06-13T10:30:00" },
+        { id: "o2", productId: "p3", price: 9.50, date: "2026-06-13T14:15:00" },
+        { id: "o3", productId: "p3", price: 9.50, date: "2026-06-12T22:00:00" },
+        { id: "o4", productId: "p2", price: 6.00, date: "2026-06-07T19:00:00" },
+        { id: "o5", productId: "p4", price: 4.00, date: "2026-05-20T15:00:00" },
+        { id: "o6", productId: "p1", price: 7.50, date: "2026-02-10T11:00:00" }
+    ],
+    currentPeriod: 'today',
+    currentActiveMenuId: null
+};
+
+let state = {};
+let cart = {}; // { productId: qty }
+
+function saveState() {
+    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch(e) {}
+}
+
+function loadState() {
+    try {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) { state = JSON.parse(saved); }
+        else { state = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
+    } catch(e) { state = JSON.parse(JSON.stringify(DEFAULT_STATE)); }
+}
+
+// ═══════════════════════════════════════════════════════
+//  LOGIN
+// ═══════════════════════════════════════════════════════
+const CREDENTIALS = { bistrot: 'tchoopi' };
+
+function doLogin() {
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    if (CREDENTIALS[u] && CREDENTIALS[u] === p) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('header-username').textContent = '👤 ' + u;
+        loadState();
+        refreshAll();
+    } else {
+        document.getElementById('login-error').style.display = 'block';
+    }
+}
+
+function doLogout() {
+    document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
+    document.getElementById('login-error').style.display = 'none';
+}
+
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
+});
+
+// ═══════════════════════════════════════════════════════
+//  TOASTS
+// ═══════════════════════════════════════════════════════
+function showToast(msg, type = 'success') {
+    const tc = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = 'toast' + (type === 'alert' ? ' alert' : '');
+    t.innerHTML = (type === 'alert' ? '🔔' : '✅') + ' ' + msg;
+    tc.appendChild(t);
+    setTimeout(() => { t.style.animation = 'slideOut 0.3s ease forwards'; setTimeout(() => t.remove(), 300); }, 4000);
+}
+
+// ═══════════════════════════════════════════════════════
+//  REFRESH
+// ═══════════════════════════════════════════════════════
+function refreshAll() {
+    renderPhoneSas();
+    renderDropdowns();
+    calculatePerformanceStats();
+    renderInventoryList();
+    renderPdfSelectors();
+    if (state.currentActiveMenuId) renderPhoneMenuContent(state.currentActiveMenuId);
+}
+
+// ═══════════════════════════════════════════════════════
+//  TABS
+// ═══════════════════════════════════════════════════════
+function switchTab(evt, tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    evt.currentTarget.classList.add('active');
+}
+
+// ═══════════════════════════════════════════════════════
+//  PHONE NAVIGATION
+// ═══════════════════════════════════════════════════════
+function renderPhoneSas() {
+    const c = document.getElementById('sas-buttons-container');
+    c.innerHTML = '';
+    state.menus.forEach(m => {
+        c.innerHTML += `<button class="sas-menu-btn" onclick="navigateToMenu('${m.id}')">${m.name}</button>`;
+    });
+}
+
+function navigateToMenu(menuId) {
+    state.currentActiveMenuId = menuId;
+    document.getElementById('view-sas').style.display = 'none';
+    document.getElementById('view-menu').style.display = 'flex';
+    document.getElementById('phone-menu-title').textContent = state.menus.find(m => m.id === menuId)?.name || '';
+    cart = {};
+    renderPhoneMenuContent(menuId);
+    updateCartUI();
+}
+
+function navigateToSas() {
+    state.currentActiveMenuId = null;
+    document.getElementById('view-menu').style.display = 'none';
+    document.getElementById('view-sas').style.display = 'flex';
+    document.getElementById('cart-panel').classList.remove('open');
+    cart = {};
+}
+
+function renderPhoneMenuContent(menuId) {
+    const container = document.getElementById('phone-items-container');
+    container.innerHTML = '';
+    state.categories.filter(c => c.menuId === menuId).forEach(cat => {
+        const visibleProds = state.products.filter(p => p.catId === cat.id && !p.isHidden);
+        if (visibleProds.length > 0) {
+            const block = document.createElement('div');
+            block.className = 'category-block';
+            block.innerHTML = `<div class="category-name">${cat.name}</div>`;
+            visibleProds.forEach(p => {
+                block.innerHTML += `
+                    <div class="product-item">
+                        <div class="product-info">
+                            <div class="product-meta"><span>${p.name}</span><span>${p.price.toFixed(2)}€</span></div>
+                            <div class="product-desc">${p.desc}</div>
+                        </div>
+                        <button class="btn-order-trigger" onclick="addToCart('${p.id}')">+ Ajouter</button>
+                    </div>`;
+            });
+            container.appendChild(block);
+        }
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+//  CART
+// ═══════════════════════════════════════════════════════
+function addToCart(prodId) {
+    cart[prodId] = (cart[prodId] || 0) + 1;
+    updateCartUI();
+    showToast('Article ajouté au panier');
+}
+
+function changeQty(prodId, delta) {
+    cart[prodId] = (cart[prodId] || 0) + delta;
+    if (cart[prodId] <= 0) delete cart[prodId];
+    updateCartUI();
+}
+
+function updateCartUI() {
+    const items = Object.entries(cart);
+    const total = items.reduce((s, [id, qty]) => {
+        const p = state.products.find(x => x.id === id);
+        return s + (p ? p.price * qty : 0);
+    }, 0);
+    const count = items.reduce((s, [, qty]) => s + qty, 0);
+
+    document.getElementById('cart-count').textContent = count;
+    document.getElementById('cart-total-label').textContent = total.toFixed(2) + '€';
+    document.getElementById('cart-grand-total').textContent = total.toFixed(2) + '€';
+
+    const lines = document.getElementById('cart-lines');
+    lines.innerHTML = '';
+    if (items.length === 0) {
+        lines.innerHTML = '<p style="font-size:0.8rem;color:var(--muted);text-align:center;padding:10px 0;">Panier vide</p>';
+    } else {
+        items.forEach(([id, qty]) => {
+            const p = state.products.find(x => x.id === id);
+            if (!p) return;
+            lines.innerHTML += `
+                <div class="cart-line">
+                    <span class="cart-line-name">${p.name}</span>
+                    <div class="cart-qty-ctrl">
+                        <button class="btn-qty" onclick="changeQty('${id}',-1)">−</button>
+                        <span style="font-size:0.85rem;font-weight:700;min-width:16px;text-align:center;">${qty}</span>
+                        <button class="btn-qty" onclick="changeQty('${id}',1)">+</button>
+                        <span style="font-size:0.82rem;font-weight:600;min-width:44px;text-align:right;">${(p.price*qty).toFixed(2)}€</span>
+                    </div>
+                </div>`;
+        });
+    }
+}
+
+function toggleCart() {
+    document.getElementById('cart-panel').classList.toggle('open');
+}
+
+function sendCartOrder() {
+    const items = Object.entries(cart);
+    if (items.length === 0) return;
+    const now = new Date().toISOString();
+    items.forEach(([id, qty]) => {
+        const p = state.products.find(x => x.id === id);
+        if (!p) return;
+        for (let i = 0; i < qty; i++) {
+            state.orders.push({ id: 'o_' + Date.now() + '_' + i, productId: id, price: p.price, date: now });
+        }
+    });
+    saveState();
+    calculatePerformanceStats();
+    renderInventoryList();
+
+    const summary = items.map(([id, qty]) => {
+        const p = state.products.find(x => x.id === id);
+        return `${qty}× ${p?.name}`;
+    }).join(', ');
+
+    showToast(`🧾 Commande reçue : ${summary}`, 'alert');
+
+    cart = {};
+    updateCartUI();
+    document.getElementById('cart-panel').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════════════════
+//  STATS & CHART
+// ═══════════════════════════════════════════════════════
+function changePeriod(period, btn) {
+    document.querySelectorAll('.btn-period').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    state.currentPeriod = period;
+    document.getElementById('custom-date-inputs').style.display = (period === 'custom') ? 'flex' : 'none';
+    calculatePerformanceStats();
+}
+
+function calculatePerformanceStats() {
+    const now = new Date();
+    let start, end = new Date(now);
+
+    if (state.currentPeriod === 'today') {
+        start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    } else if (state.currentPeriod === 'week') {
+        start = new Date(now); start.setDate(now.getDate() - 7);
+    } else if (state.currentPeriod === 'month') {
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+    } else if (state.currentPeriod === 'year') {
+        start = new Date(now.getFullYear(), 0, 1);
+    } else {
+        start = new Date(document.getElementById('date-start').value || (now.getFullYear() + '-01-01'));
+        end = new Date(document.getElementById('date-end').value || (now.getFullYear() + '-12-31'));
+        end.setHours(23, 59, 59);
+    }
+
+    const filtered = state.orders.filter(o => { const d = new Date(o.date); return d >= start && d <= end; });
+    const ca = filtered.reduce((s, o) => s + o.price, 0);
+    const count = filtered.length;
+    document.getElementById('stat-ca').textContent = ca.toFixed(2) + '€';
+    document.getElementById('stat-orders').textContent = count;
+    document.getElementById('stat-panier').textContent = (count > 0 ? ca / count : 0).toFixed(2) + '€';
+
+    let itemCounts = {};
+    state.products.forEach(p => itemCounts[p.id] = 0);
+    filtered.forEach(o => { if (itemCounts[o.productId] !== undefined) itemCounts[o.productId]++; });
+
+    let sorted = [...state.products].map(p => ({ ...p, qty: itemCounts[p.id] || 0 })).sort((a, b) => b.qty - a.qty);
+
+    const popList = document.getElementById('list-popular'); popList.innerHTML = '';
+    sorted.slice(0, 3).forEach(s => popList.innerHTML += `<li><span>${s.name.substring(0,18)}…</span><strong>${s.qty}v.</strong></li>`);
+
+    const weakList = document.getElementById('list-weak'); weakList.innerHTML = '';
+    [...sorted].reverse().slice(0, 3).forEach(s => weakList.innerHTML += `<li><span>${s.name.substring(0,18)}…</span><strong style="color:var(--danger)">${s.qty}v.</strong></li>`);
+
+    renderChart(sorted);
+}
+
+let chartInstance = null;
+function renderChart(sorted) {
+    const canvas = document.getElementById('sales-chart');
+    const ctx = canvas.getContext('2d');
+
+    if (chartInstance) { chartInstance.destroy(); chartInstance = null; }
+
+    const labels = sorted.map(s => s.name.length > 14 ? s.name.substring(0, 14) + '…' : s.name);
+    const data = sorted.map(s => s.qty);
+    const maxVal = Math.max(...data, 1);
+
+    // Simple canvas bar chart (no external library needed)
+    const W = canvas.offsetWidth || 360;
+    canvas.width = W * window.devicePixelRatio;
+    canvas.height = 130 * window.devicePixelRatio;
+    canvas.style.width = W + 'px';
+    canvas.style.height = '130px';
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+
+    const padLeft = 6, padRight = 6, padTop = 10, padBottom = 30;
+    const chartW = W - padLeft - padRight;
+    const chartH = 130 - padTop - padBottom;
+    const barW = Math.min(Math.floor(chartW / labels.length) - 4, 48);
+    const gap = Math.floor((chartW - barW * labels.length) / labels.length);
+
+    ctx.clearRect(0, 0, W, 130);
+
+    // Grid line
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(padLeft, padTop + chartH); ctx.lineTo(W - padRight, padTop + chartH); ctx.stroke();
+
+    labels.forEach((label, i) => {
+        const x = padLeft + i * (barW + gap) + gap / 2;
+        const barH = data[i] > 0 ? Math.max((data[i] / maxVal) * chartH, 4) : 3;
+        const y = padTop + chartH - barH;
+
+        // Bar
+        ctx.fillStyle = data[i] > 0 ? '#601424' : '#e5e7eb';
+        ctx.beginPath();
+        ctx.roundRect(x, y, barW, barH, [3, 3, 0, 0]);
+        ctx.fill();
+
+        // Value label
+        if (data[i] > 0) {
+            ctx.fillStyle = '#601424'; ctx.font = `bold ${Math.min(10, barW * 0.6)}px Plus Jakarta Sans`; ctx.textAlign = 'center';
+            ctx.fillText(data[i], x + barW / 2, y - 3);
+        }
+
+        // X label
+        ctx.fillStyle = '#6b7280'; ctx.font = `9px Plus Jakarta Sans`; ctx.textAlign = 'center';
+        ctx.fillText(label, x + barW / 2, padTop + chartH + 14);
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+//  INVENTORY
+// ═══════════════════════════════════════════════════════
+function renderInventoryList() {
+    const container = document.getElementById('admin-product-inventory');
+    container.innerHTML = '';
+    state.products.forEach(p => {
+        const cat = state.categories.find(c => c.id === p.catId);
+        const menu = cat ? state.menus.find(m => m.id === cat.menuId) : null;
+        const totalSales = state.orders.filter(o => o.productId === p.id).length;
+
+        const wrapper = document.createElement('div');
+
+        const row = document.createElement('div');
+        row.className = `item-row ${p.isHidden ? 'hidden-item' : ''}`;
+        row.innerHTML = `
+            <div class="item-info">
+                <div class="item-name">${p.name} — <span style="color:var(--burgundy);font-weight:700;">${p.price.toFixed(2)}€</span></div>
+                <div class="item-sub">${menu ? menu.name : '–'} › ${cat ? cat.name : '–'}</div>
+            </div>
+            <div class="action-icons">
+                <span style="font-size:0.72rem;font-weight:700;background:#e0f2fe;color:#0369a1;padding:2px 6px;border-radius:4px;">${totalSales}v.</span>
+                <button class="btn-icon" onclick="openInlineEdit('${p.id}')" title="Modifier">✏️</button>
+                <button class="btn-icon" onclick="toggleProductVisibility('${p.id}')" title="Masquer/Afficher">${p.isHidden ? '🙈' : '👁️'}</button>
+                <button class="btn-icon" onclick="deleteProduct('${p.id}')" title="Supprimer">🗑️</button>
+            </div>`;
+
+        const editForm = document.createElement('div');
+        editForm.className = 'inline-edit-form';
+        editForm.id = `edit-form-${p.id}`;
+        editForm.innerHTML = `
+            <input type="text" id="edit-name-${p.id}" value="${p.name}" placeholder="Nom" style="flex:2;min-width:100px;">
+            <input type="number" id="edit-price-${p.id}" value="${p.price}" step="0.10" min="0" placeholder="Prix" style="width:70px;">
+            <input type="text" id="edit-desc-${p.id}" value="${p.desc}" placeholder="Description" style="flex:3;min-width:120px;">
+            <button class="btn-save-inline" onclick="saveInlineEdit('${p.id}')">Sauver</button>
+            <button class="btn-cancel-inline" onclick="closeInlineEdit('${p.id}')">Annuler</button>`;
+
+        wrapper.appendChild(row);
+        wrapper.appendChild(editForm);
+        container.appendChild(wrapper);
+    });
+}
+
+function openInlineEdit(id) {
+    document.querySelectorAll('.inline-edit-form').forEach(f => f.classList.remove('open'));
+    document.getElementById(`edit-form-${id}`).classList.add('open');
+}
+function closeInlineEdit(id) { document.getElementById(`edit-form-${id}`).classList.remove('open'); }
+
+function saveInlineEdit(id) {
+    const p = state.products.find(x => x.id === id);
+    if (!p) return;
+    const newName = document.getElementById(`edit-name-${id}`).value.trim();
+    const newPrice = parseFloat(document.getElementById(`edit-price-${id}`).value);
+    const newDesc = document.getElementById(`edit-desc-${id}`).value.trim();
+    if (!newName || isNaN(newPrice)) return;
+    p.name = newName; p.price = newPrice; p.desc = newDesc;
+    saveState();
+    refreshAll();
+    showToast(`"${newName}" mis à jour`);
+}
+
+function toggleProductVisibility(prodId) {
+    const p = state.products.find(x => x.id === prodId);
+    if (p) { p.isHidden = !p.isHidden; saveState(); renderInventoryList(); if (state.currentActiveMenuId) renderPhoneMenuContent(state.currentActiveMenuId); }
+}
+
+function deleteProduct(prodId) {
+    if (!confirm('Supprimer cet article définitivement ?')) return;
+    const p = state.products.find(x => x.id === prodId);
+    state.products = state.products.filter(x => x.id !== prodId);
+    saveState(); refreshAll();
+    showToast(`"${p?.name}" supprimé`);
+}
+
+// ═══════════════════════════════════════════════════════
+//  DROPDOWNS
+// ═══════════════════════════════════════════════════════
+function renderDropdowns() {
+    const mSel = document.getElementById('select-menu-parent'); mSel.innerHTML = '';
+    state.menus.forEach(m => mSel.innerHTML += `<option value="${m.id}">${m.name}</option>`);
+
+    const cSel = document.getElementById('select-cat-parent'); cSel.innerHTML = '';
+    state.menus.forEach(m => {
+        const grp = document.createElement('optgroup'); grp.label = m.name;
+        state.categories.filter(c => c.menuId === m.id).forEach(c => grp.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+        cSel.appendChild(grp);
+    });
+}
+
+// ═══════════════════════════════════════════════════════
+//  CREATE MENU / CAT / PRODUCT
+// ═══════════════════════════════════════════════════════
+function adminCreateNewMenu() {
+    const val = document.getElementById('add-menu-name').value.trim();
+    if (!val) return;
+    state.menus.push({ id: 'm_' + Date.now(), name: val });
+    document.getElementById('add-menu-name').value = '';
+    saveState(); refreshAll();
+    showToast(`Menu "${val}" créé`);
+}
+
+function adminCreateNewCategory() {
+    const mId = document.getElementById('select-menu-parent').value;
+    const val = document.getElementById('add-cat-name').value.trim();
+    if (!val) return;
+    state.categories.push({ id: 'c_' + Date.now(), menuId: mId, name: val });
+    document.getElementById('add-cat-name').value = '';
+    saveState(); refreshAll();
+    showToast(`Catégorie "${val}" créée`);
+}
+
+function adminCreateProduct() {
+    const catId = document.getElementById('select-cat-parent').value;
+    const name = document.getElementById('add-prod-name').value.trim();
+    const price = parseFloat(document.getElementById('add-prod-price').value);
+    const desc = document.getElementById('add-prod-desc').value.trim();
+    if (!name || isNaN(price)) return alert('Nom et prix requis.');
+    state.products.push({ id: 'p_' + Date.now(), catId, name, price, desc, isHidden: false });
+    document.getElementById('add-prod-name').value = '';
+    document.getElementById('add-prod-price').value = '';
+    document.getElementById('add-prod-desc').value = '';
+    saveState(); refreshAll();
+    showToast(`"${name}" ajouté à la carte`);
+}
+
+// ═══════════════════════════════════════════════════════
+//  PDF
+// ═══════════════════════════════════════════════════════
+function togglePdfSelectors(show) {
+    document.getElementById('pdf-custom-selectors').style.display = show ? 'block' : 'none';
+}
+
+function renderPdfSelectors() {
+    const c = document.getElementById('pdf-custom-selectors'); c.innerHTML = '';
+    state.menus.forEach(m => {
+        c.innerHTML += `<div class="pdf-check-item"><input type="checkbox" id="print-m-${m.id}" value="${m.id}" class="pdf-menu-checkbox" checked><label for="print-m-${m.id}"><strong>${m.name}</strong></label></div>`;
+    });
+}
+
+function generateCustomPDF() {
+    const mode = document.querySelector('input[name="pdf-mode"]:checked').value;
+    const printZone = document.getElementById('strict-print-zone');
+    printZone.innerHTML = '';
+    let selectedMenus = mode === 'all' ? state.menus : [];
+    if (mode === 'custom') {
+        document.querySelectorAll('.pdf-menu-checkbox:checked').forEach(cb => {
+            const found = state.menus.find(m => m.id === cb.value);
+            if (found) selectedMenus.push(found);
+        });
+    }
+    if (!selectedMenus.length) return alert('Cochez au moins un menu.');
+    selectedMenus.forEach(m => {
+        const section = document.createElement('div');
+        section.className = 'print-menu-section';
+        section.innerHTML = `<div class="print-title">${m.name}</div>`;
+        const grid = document.createElement('div'); grid.className = 'print-grid';
+        state.categories.filter(c => c.menuId === m.id).forEach(cat => {
+            const activeProds = state.products.filter(p => p.catId === cat.id && !p.isHidden);
+            if (activeProds.length > 0) {
+                const catBlock = document.createElement('div'); catBlock.className = 'category-block';
+                catBlock.innerHTML = `<div class="category-name" style="font-size:1.4rem;">${cat.name}</div>`;
+                activeProds.forEach(p => {
+                    catBlock.innerHTML += `<div class="product-item" style="margin-bottom:18px;"><div style="width:100%"><div class="product-meta" style="font-size:1.1rem;"><span>${p.name}</span><span>${p.price.toFixed(2)}€</span></div><div class="product-desc" style="font-size:0.82rem;margin-top:4px;">${p.desc}</div></div></div>`;
+                });
+                grid.appendChild(catBlock);
+            }
+        });
+        section.appendChild(grid);
+        printZone.appendChild(section);
+    });
+    window.print();
+}
+
+// ═══════════════════════════════════════════════════════
+//  QR CODE
+// ═══════════════════════════════════════════════════════
+let qrInstance = null;
+function generateQRCode() {
+    const url = document.getElementById('qr-url-input').value.trim();
+    if (!url) return alert('Entrez une URL.');
+    const size = parseInt(document.getElementById('qr-size').value);
+
+    const wrap = document.getElementById('qr-canvas-wrap');
+    wrap.innerHTML = '';
+
+    qrInstance = new QRCode(wrap, {
+        text: url,
+        width: size,
+        height: size,
+        colorDark: '#601424',
+        colorLight: '#ede2cf',
+        correctLevel: QRCode.CorrectLevel.H
+    });
+
+    document.getElementById('qr-url-label').textContent = url;
+    document.getElementById('qr-display').style.display = 'block';
+}
+
+function downloadQR() {
+    const img = document.querySelector('#qr-canvas-wrap img');
+    if (!img) return;
+    const a = document.createElement('a');
+    a.href = img.src;
+    a.download = 'bistrot-qr-code.png';
+    a.click();
+}
+
+// ═══════════════════════════════════════════════════════
+//  INIT
+// ═══════════════════════════════════════════════════════
+window.onload = function() {
+    // Attendre le login avant d'initialiser
+};
+</script>
+</body>
+</html>
