@@ -1,1 +1,640 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Le Bistrot des Halles — Dashboard Admin</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+        :root {
+            --burgundy: #601424; --burgundy-light: #7a1a2e;
+            --cream: #ede2cf; --taupe: #b2a48f; --text: #2d2325;
+            --admin-bg: #f3f4f6; --success: #10b981; --danger: #ef4444;
+            --info: #3b82f6; --warning: #f59e0b; --border: #e5e7eb; --muted: #6b7280;
+        }
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--admin-bg); color: #1f2937; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
+        /* LOGIN */
+        #login-screen { position: fixed; inset: 0; z-index: 9999; background: #111827; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: #1f2937; border-radius: 16px; padding: 40px; width: 360px; box-shadow: 0 25px 60px rgba(0,0,0,0.5); border: 1px solid #374151; }
+        .login-logo { width: 60px; height: 60px; border-radius: 50%; background: var(--burgundy); display: flex; align-items: center; justify-content: center; font-family: 'Playfair Display', serif; color: white; font-size: 1.4rem; margin: 0 auto 20px; }
+        .login-box h2 { font-family: 'Playfair Display', serif; color: var(--cream); text-align: center; margin-bottom: 5px; font-size: 1.4rem; }
+        .login-box p { color: #9ca3af; text-align: center; font-size: 0.82rem; margin-bottom: 28px; }
+        .login-field { margin-bottom: 14px; }
+        .login-field label { display: block; font-size: 0.8rem; font-weight: 600; color: #9ca3af; margin-bottom: 5px; }
+        .login-field input { width: 100%; padding: 11px 14px; background: #111827; border: 1px solid #374151; border-radius: 8px; color: white; font-size: 0.9rem; outline: none; }
+        .login-field input:focus { border-color: var(--burgundy); }
+        .login-error { background: #450a0a; border: 1px solid #991b1b; color: #fca5a5; padding: 10px; border-radius: 6px; font-size: 0.82rem; margin-bottom: 12px; display: none; }
+        .login-btn { width: 100%; padding: 12px; background: var(--burgundy); color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
+
+        /* TOASTS */
+        #toast-container { position: fixed; top: 70px; right: 16px; z-index: 8888; display: flex; flex-direction: column; gap: 8px; }
+        .toast { background: #1f2937; color: white; padding: 14px 18px; border-radius: 10px; border-left: 4px solid var(--success); box-shadow: 0 8px 20px rgba(0,0,0,0.25); font-size: 0.85rem; max-width: 300px; animation: slideIn 0.3s ease; }
+        .toast.alert { border-left-color: var(--warning); background: #1c1400; }
+        .toast.order { border-left-color: #f59e0b; background: #111827; font-size: 0.9rem; }
+        @keyframes slideIn { from { transform: translateX(120%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+        /* HEADER */
+        .demo-header { background: #111827; color: white; padding: 12px 24px; display: flex; justify-content: space-between; align-items: center; flex-shrink: 0; }
+        .header-brand { font-family: 'Playfair Display', serif; color: var(--cream); font-size: 1.15rem; }
+        .header-badge { font-size: 0.72rem; background: var(--burgundy); color: white; padding: 3px 8px; border-radius: 20px; font-weight: 700; margin-left: 10px; }
+        .sync-dot { width: 8px; height: 8px; border-radius: 50%; background: #9ca3af; display: inline-block; margin-right: 6px; }
+        .sync-dot.live { background: var(--success); animation: pulse 2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+        .btn-logout { background: #374151; color: #d1d5db; border: none; padding: 6px 12px; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+
+        /* LAYOUT */
+        .dashboard-container { display: flex; flex: 1; overflow: hidden; }
+        .admin-panel { width: 60%; display: flex; flex-direction: column; background: #f9fafb; border-right: 1px solid var(--border); }
+
+        /* TABS */
+        .admin-tabs { display: flex; background: #e5e7eb; border-bottom: 1px solid #d1d5db; flex-shrink: 0; }
+        .tab-btn { flex: 1; padding: 12px 4px; border: none; background: none; font-weight: 600; font-size: 0.75rem; color: #4b5563; cursor: pointer; }
+        .tab-btn.active { background: white; color: var(--burgundy); border-bottom: 3px solid var(--burgundy); }
+        .tab-content { padding: 16px; overflow-y: auto; flex: 1; display: none; }
+        .tab-content.active { display: block; }
+
+        /* CARDS */
+        .card { background: white; padding: 16px; border-radius: 12px; border: 1px solid var(--border); margin-bottom: 14px; }
+        h2 { font-size: 0.95rem; color: #111827; margin-bottom: 10px; }
+        .form-group { margin-bottom: 10px; }
+        .form-group label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 0.8rem; color: #4b5563; }
+        .form-control { width: 100%; padding: 9px 11px; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.86rem; font-family: inherit; outline: none; }
+        .form-control:focus { border-color: var(--burgundy); }
+        .btn-submit { color: white; width: 100%; padding: 10px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; font-size: 0.86rem; }
+
+        /* COMMANDES LIVE */
+        .orders-live { max-height: 500px; overflow-y: auto; }
+        .order-card { background: white; border: 1px solid var(--border); border-radius: 10px; padding: 14px; margin-bottom: 10px; border-left: 4px solid var(--warning); }
+        .order-card.done { border-left-color: var(--success); opacity: 0.7; }
+        .order-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .order-table { font-weight: 800; font-size: 1rem; color: var(--burgundy); }
+        .order-time { font-size: 0.75rem; color: var(--muted); }
+        .order-items { font-size: 0.85rem; margin-bottom: 10px; }
+        .order-item-line { padding: 3px 0; border-bottom: 1px dashed #f3f4f6; display: flex; justify-content: space-between; }
+        .order-total { font-weight: 700; color: var(--burgundy); text-align: right; font-size: 0.9rem; }
+        .btn-done { background: var(--success); color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
+        .btn-done.undo { background: #6b7280; }
+        .empty-orders { text-align: center; padding: 40px; color: var(--muted); font-style: italic; }
+
+        /* STATS */
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 12px; }
+        .stat-card { background: #f9fafb; border: 1px solid var(--border); padding: 10px; border-radius: 8px; text-align: center; }
+        .stat-card label { display: block; font-size: 0.7rem; color: var(--muted); font-weight: 600; margin-bottom: 3px; }
+        .stat-card span { display: block; font-size: 1.2rem; font-weight: bold; color: var(--burgundy); }
+        .period-selector { display: flex; gap: 4px; margin-bottom: 12px; background: #f3f4f6; padding: 3px; border-radius: 8px; }
+        .btn-period { flex: 1; padding: 6px 3px; border: none; background: none; font-size: 0.73rem; font-weight: 600; border-radius: 5px; cursor: pointer; }
+        .btn-period.active { background: white; color: var(--burgundy); box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+
+        /* INVENTORY */
+        .item-row { display: flex; align-items: center; justify-content: space-between; padding: 9px 12px; border-bottom: 1px solid #f3f4f6; font-size: 0.83rem; gap: 8px; }
+        .item-row.hidden-item { background: #f9fafb; opacity: 0.6; }
+        .item-info { flex: 1; min-width: 0; }
+        .item-name { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-sub { font-size: 0.7rem; color: var(--muted); }
+        .action-icons { display: flex; gap: 5px; align-items: center; flex-shrink: 0; }
+        .btn-icon { background: none; border: none; cursor: pointer; font-size: 0.95rem; padding: 3px; border-radius: 4px; }
+        .inline-edit-form { display: none; background: #f9fafb; border-top: 1px solid var(--border); padding: 10px 12px; gap: 6px; flex-wrap: wrap; }
+        .inline-edit-form.open { display: flex; }
+        .inline-edit-form input { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 0.8rem; font-family: inherit; outline: none; }
+        .btn-save-inline { background: var(--success); color: white; border: none; padding: 6px 10px; border-radius: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
+        .btn-cancel-inline { background: #e5e7eb; color: #374151; border: none; padding: 6px 8px; border-radius: 5px; font-size: 0.78rem; cursor: pointer; }
+
+        /* QR */
+        #qr-display { text-align: center; padding: 16px 0; }
+        .qr-url-display { background: #f3f4f6; border: 1px dashed #d1d5db; border-radius: 6px; padding: 10px; font-size: 0.78rem; color: #374151; word-break: break-all; margin: 10px 0; font-family: monospace; }
+
+        /* PREVIEW PANEL */
+        .preview-panel { width: 40%; background: #2d3748; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 15px; gap: 12px; }
+        .preview-label { color: #9ca3af; font-size: 0.78rem; font-weight: 600; text-align: center; }
+        .preview-link { background: var(--burgundy); color: white; padding: 10px 18px; border-radius: 8px; font-size: 0.82rem; font-weight: 700; text-decoration: none; display: inline-block; }
+
+        /* NOTIF PERMISSION */
+        .notif-banner { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 0.82rem; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        .btn-enable-notif { background: var(--warning); color: white; border: none; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    </style>
+</head>
+<body>
+
+<div id="login-screen">
+    <div class="login-box">
+        <div class="login-logo">BH</div>
+        <h2>Le Bistrot des Halles</h2>
+        <p>Accès réservé à l'administration</p>
+        <div id="login-error" class="login-error">Identifiants incorrects.</div>
+        <div class="login-field"><label>Identifiant</label><input type="text" id="login-user" placeholder="bistrot"></div>
+        <div class="login-field"><label>Mot de passe</label><input type="password" id="login-pass" placeholder="••••••••"></div>
+        <button class="login-btn" onclick="doLogin()">Accéder au tableau de bord</button>
+    </div>
+</div>
+
+<div id="toast-container"></div>
+
+<header class="demo-header">
+    <div>
+        <span class="header-brand">Le Bistrot des Halles</span>
+        <span class="header-badge">Admin</span>
+        <span id="sync-indicator" style="font-size:0.78rem;color:#9ca3af;margin-left:12px;"><span class="sync-dot" id="sync-dot"></span>Connexion...</span>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;">
+        <span style="font-size:0.82rem;color:#9ca3af;" id="header-user"></span>
+        <button class="btn-logout" onclick="doLogout()">Déconnexion</button>
+    </div>
+</header>
+
+<div class="dashboard-container">
+    <div class="admin-panel">
+        <nav class="admin-tabs">
+            <button class="tab-btn active" onclick="switchTab(event,'tab-orders')">🔔 Commandes</button>
+            <button class="tab-btn" onclick="switchTab(event,'tab-dashboard')">📈 Stats</button>
+            <button class="tab-btn" onclick="switchTab(event,'tab-carte')">⚙️ Carte</button>
+            <button class="tab-btn" onclick="switchTab(event,'tab-inventory')">📦 Stocks</button>
+            <button class="tab-btn" onclick="switchTab(event,'tab-qr')">📱 QR</button>
+        </nav>
+
+        <!-- COMMANDES LIVE -->
+        <div id="tab-orders" class="tab-content active">
+            <div id="notif-banner" class="notif-banner" style="display:none;">
+                🔔 Activez les notifications pour être alerté des nouvelles commandes même si l'écran est verrouillé.
+                <button class="btn-enable-notif" onclick="requestNotifPermission()">Activer</button>
+            </div>
+            <div class="card">
+                <h2>🔴 Commandes en attente <span id="pending-count" style="background:var(--danger);color:white;padding:2px 8px;border-radius:20px;font-size:0.75rem;margin-left:6px;">0</span></h2>
+                <div class="orders-live" id="orders-list">
+                    <div class="empty-orders">Aucune commande en attente</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- STATS -->
+        <div id="tab-dashboard" class="tab-content">
+            <div class="card">
+                <h2>📅 Analyse des ventes</h2>
+                <div class="period-selector">
+                    <button class="btn-period active" onclick="changePeriod('today',this)">Auj.</button>
+                    <button class="btn-period" onclick="changePeriod('week',this)">7j</button>
+                    <button class="btn-period" onclick="changePeriod('month',this)">Mois</button>
+                    <button class="btn-period" onclick="changePeriod('all',this)">Tout</button>
+                </div>
+                <div class="stats-grid">
+                    <div class="stat-card"><label>Chiffre d'affaires</label><span id="stat-ca">0.00€</span></div>
+                    <div class="stat-card"><label>Commandes</label><span id="stat-orders">0</span></div>
+                    <div class="stat-card"><label>Panier moyen</label><span id="stat-panier">0.00€</span></div>
+                </div>
+                <canvas id="sales-chart" style="width:100%;height:120px;"></canvas>
+            </div>
+        </div>
+
+        <!-- CARTE -->
+        <div id="tab-carte" class="tab-content">
+            <div class="card">
+                <h2>📁 Créer un menu</h2>
+                <div class="form-group"><input type="text" id="add-menu-name" class="form-control" placeholder="Ex : Formule du Midi"></div>
+                <button class="btn-submit" style="background:var(--burgundy);" onclick="adminCreateNewMenu()">Déployer</button>
+            </div>
+            <div class="card">
+                <h2>🗂️ Ajouter une catégorie</h2>
+                <div class="form-group"><label>Menu :</label><select id="select-menu-parent" class="form-control"></select></div>
+                <div class="form-group"><input type="text" id="add-cat-name" class="form-control" placeholder="Ex : Vins Blancs"></div>
+                <button class="btn-submit" style="background:var(--info);" onclick="adminCreateNewCategory()">Créer</button>
+            </div>
+            <div class="card">
+                <h2>🍷 Ajouter un article</h2>
+                <div class="form-group"><label>Catégorie :</label><select id="select-cat-parent" class="form-control"></select></div>
+                <div style="display:flex;gap:8px;margin-bottom:10px;">
+                    <input type="text" id="add-prod-name" class="form-control" placeholder="Nom" style="flex:2;">
+                    <input type="number" id="add-prod-price" class="form-control" placeholder="Prix €" style="flex:1;" step="0.10" min="0">
+                </div>
+                <div class="form-group"><input type="text" id="add-prod-desc" class="form-control" placeholder="Description, allergènes..."></div>
+                <button class="btn-submit" style="background:var(--success);" onclick="adminCreateProduct()">Publier</button>
+            </div>
+        </div>
+
+        <!-- STOCKS -->
+        <div id="tab-inventory" class="tab-content">
+            <div class="card">
+                <h2>📦 Inventaire & disponibilités</h2>
+                <p style="font-size:0.75rem;color:var(--muted);margin-bottom:10px;">✏️ Modifier · 👁️ Masquer du menu client · 🗑️ Supprimer</p>
+                <div id="admin-product-inventory" style="border:1px solid var(--border);border-radius:8px;max-height:450px;overflow-y:auto;"></div>
+            </div>
+        </div>
+
+        <!-- QR -->
+        <div id="tab-qr" class="tab-content">
+            <div class="card">
+                <h2>📱 QR Code — Menu Client</h2>
+                <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;">Scannez pour accéder au menu client. Imprimez et placez sur vos tables.</p>
+                <div class="form-group"><label>URL du menu client :</label><input type="text" id="qr-url-input" class="form-control" value="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html"></div>
+                <div class="form-group"><label>Taille :</label><select id="qr-size" class="form-control"><option value="160">Petit</option><option value="220" selected>Moyen</option><option value="300">Grand</option></select></div>
+                <button class="btn-submit" style="background:var(--burgundy);" onclick="generateQRCode()">Générer</button>
+                <div id="qr-display" style="display:none;margin-top:16px;">
+                    <div id="qr-canvas-wrap"></div>
+                    <div class="qr-url-display" id="qr-url-label"></div>
+                    <button class="btn-submit" style="background:var(--success);margin-top:6px;" onclick="downloadQR()">⬇️ Télécharger PNG</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="preview-panel">
+        <div class="preview-label">🍷 Menu client accessible sur :</div>
+        <a class="preview-link" href="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html" target="_blank">Ouvrir le menu client ↗</a>
+        <div class="preview-label" style="margin-top:20px;">Les modifications de carte<br>sont synchronisées en temps réel</div>
+        <div id="last-sync" style="color:#4b5563;font-size:0.75rem;margin-top:4px;">—</div>
+    </div>
+</div>
+
+<script>
+const SUPABASE_URL = 'https://mvxqpysdbngyazzzdbkc.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHFweXNkYm5neWF6enpkYmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTgyNzgsImV4cCI6MjA5NjkzNDI3OH0.Y0v4pHdGHF6oGMP4AbTyMjIAZLJk-S7iWL0p_SaRJAs';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+const CREDENTIALS = { bistrot: 'tchoopi' };
+
+let appState = {
+    menus: [], categories: [], products: [], currentPeriod: 'today'
+};
+let allOrders = [];
+let realtimeChannel = null;
+
+// ── LOGIN ──
+function doLogin() {
+    const u = document.getElementById('login-user').value.trim();
+    const p = document.getElementById('login-pass').value;
+    if (CREDENTIALS[u] && CREDENTIALS[u] === p) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('header-user').textContent = '👤 ' + u;
+        initAdmin();
+    } else {
+        document.getElementById('login-error').style.display = 'block';
+    }
+}
+function doLogout() {
+    if (realtimeChannel) db.removeChannel(realtimeChannel);
+    document.getElementById('login-screen').style.display = 'flex';
+}
+document.addEventListener('keydown', e => {
+    if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
+});
+
+// ── INIT ──
+async function initAdmin() {
+    await loadState();
+    await loadOrders();
+    subscribeToOrders();
+    checkNotifPermission();
+    refreshAll();
+    setSyncStatus(true);
+}
+
+// ── SUPABASE STATE ──
+async function loadState() {
+    const { data } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
+    if (data?.value) {
+        appState = { ...appState, ...data.value };
+    } else {
+        // Init par défaut
+        appState.menus = [
+            { id: "m_vins", name: "La Carte des Vins" },
+            { id: "m_cocktails", name: "Les Cocktails & Boissons" }
+        ];
+        appState.categories = [
+            { id: "c_rouges", menuId: "m_vins", name: "Vins Rouges" },
+            { id: "c_blancs", menuId: "m_vins", name: "Vins Blancs" },
+            { id: "c_creations", menuId: "m_cocktails", name: "Créations du Chef" },
+            { id: "c_softs", menuId: "m_cocktails", name: "Softs Frais" }
+        ];
+        appState.products = [
+            { id: "p1", catId: "c_rouges", name: "Saint-Émilion Grand Cru", price: 7.50, desc: "Notes boisées, finale veloutée.", isHidden: false },
+            { id: "p2", catId: "c_blancs", name: "Chablis Artisanal", price: 6.00, desc: "Minéral, frais, idéal fruits de mer.", isHidden: false },
+            { id: "p3", catId: "c_creations", name: "Bistrot Mule Signature", price: 9.50, desc: "Vodka infusée au basilic, Ginger Beer, citron vert.", isHidden: false },
+            { id: "p4", catId: "c_softs", name: "Limonade Maison Menthe", price: 4.00, desc: "Citrons pressés minute, sirop de canne bio.", isHidden: false }
+        ];
+        await saveState();
+    }
+}
+
+async function saveState() {
+    const payload = { menus: appState.menus, categories: appState.categories, products: appState.products };
+    await db.from('state').upsert({ key: 'app_state', value: payload });
+    document.getElementById('last-sync').textContent = 'Sync : ' + new Date().toLocaleTimeString('fr-FR');
+}
+
+// ── ORDERS ──
+async function loadOrders() {
+    const { data } = await db.from('orders').select('*').order('created_at', { ascending: false });
+    allOrders = data || [];
+    renderOrders();
+    calculateStats();
+}
+
+function subscribeToOrders() {
+    realtimeChannel = db.channel('orders-channel')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, payload => {
+            const order = payload.new;
+            allOrders.unshift(order);
+            renderOrders();
+            calculateStats();
+            notifyNewOrder(order);
+        })
+        .subscribe(status => setSyncStatus(status === 'SUBSCRIBED'));
+}
+
+function notifyNewOrder(order) {
+    const summary = order.items?.map(i => `${i.qty}× ${i.name}`).join(', ') || '';
+    showToast(`🔔 ${order.table_number} — ${summary} (${parseFloat(order.total).toFixed(2)}€)`, 'order');
+
+    if (Notification.permission === 'granted') {
+        new Notification('🔔 Nouvelle commande — ' + order.table_number, {
+            body: summary + ' · ' + parseFloat(order.total).toFixed(2) + '€',
+            icon: '/favicon.ico'
+        });
+    }
+}
+
+function renderOrders() {
+    const container = document.getElementById('orders-list');
+    const pending = allOrders.filter(o => o.status === 'pending');
+    document.getElementById('pending-count').textContent = pending.length;
+
+    const toShow = allOrders.slice(0, 20);
+    if (!toShow.length) {
+        container.innerHTML = '<div class="empty-orders">Aucune commande reçue</div>';
+        return;
+    }
+
+    container.innerHTML = '';
+    toShow.forEach(order => {
+        const isDone = order.status === 'done';
+        const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+        const itemsHtml = (order.items || []).map(i =>
+            `<div class="order-item-line"><span>${i.qty}× ${i.name}</span><span>${(i.price * i.qty).toFixed(2)}€</span></div>`
+        ).join('');
+
+        const div = document.createElement('div');
+        div.className = `order-card ${isDone ? 'done' : ''}`;
+        div.innerHTML = `
+            <div class="order-card-header">
+                <span class="order-table">📍 ${order.table_number}</span>
+                <span class="order-time">${time}</span>
+            </div>
+            <div class="order-items">${itemsHtml}</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <span class="order-total">Total : ${parseFloat(order.total).toFixed(2)}€</span>
+                <button class="btn-done ${isDone ? 'undo' : ''}" onclick="toggleOrderDone('${order.id}', ${isDone})">
+                    ${isDone ? '↩️ Rouvrir' : '✅ Servi'}
+                </button>
+            </div>`;
+        container.appendChild(div);
+    });
+}
+
+async function toggleOrderDone(orderId, isDone) {
+    await db.from('orders').update({ status: isDone ? 'pending' : 'done' }).eq('id', orderId);
+    const order = allOrders.find(o => o.id == orderId);
+    if (order) order.status = isDone ? 'pending' : 'done';
+    renderOrders();
+    calculateStats();
+}
+
+// ── STATS ──
+function changePeriod(period, btn) {
+    document.querySelectorAll('.btn-period').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    appState.currentPeriod = period;
+    calculateStats();
+}
+
+function calculateStats() {
+    const now = new Date();
+    let filtered = allOrders;
+
+    if (appState.currentPeriod === 'today') {
+        filtered = allOrders.filter(o => new Date(o.created_at).toDateString() === now.toDateString());
+    } else if (appState.currentPeriod === 'week') {
+        const week = new Date(now); week.setDate(now.getDate() - 7);
+        filtered = allOrders.filter(o => new Date(o.created_at) >= week);
+    } else if (appState.currentPeriod === 'month') {
+        filtered = allOrders.filter(o => {
+            const d = new Date(o.created_at);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+    }
+
+    const ca = filtered.reduce((s, o) => s + parseFloat(o.total || 0), 0);
+    const count = filtered.length;
+    document.getElementById('stat-ca').textContent = ca.toFixed(2) + '€';
+    document.getElementById('stat-orders').textContent = count;
+    document.getElementById('stat-panier').textContent = (count > 0 ? ca / count : 0).toFixed(2) + '€';
+    renderChart(filtered);
+}
+
+function renderChart(orders) {
+    const canvas = document.getElementById('sales-chart');
+    const ctx = canvas.getContext('2d');
+    const W = canvas.offsetWidth || 400;
+    canvas.width = W * window.devicePixelRatio;
+    canvas.height = 120 * window.devicePixelRatio;
+    canvas.style.width = W + 'px'; canvas.style.height = '120px';
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    ctx.clearRect(0, 0, W, 120);
+
+    // Compter par produit
+    let counts = {};
+    orders.forEach(o => (o.items || []).forEach(i => { counts[i.name] = (counts[i.name] || 0) + i.qty; }));
+    const entries = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    if (!entries.length) return;
+
+    const maxVal = Math.max(...entries.map(e => e[1]), 1);
+    const pad = { l: 6, r: 6, t: 10, b: 28 };
+    const cW = W - pad.l - pad.r, cH = 120 - pad.t - pad.b;
+    const barW = Math.min(Math.floor(cW / entries.length) - 5, 50);
+    const gap = Math.floor((cW - barW * entries.length) / entries.length);
+
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t + cH); ctx.lineTo(W - pad.r, pad.t + cH); ctx.stroke();
+
+    entries.forEach(([name, qty], i) => {
+        const x = pad.l + i * (barW + gap) + gap / 2;
+        const bH = Math.max((qty / maxVal) * cH, 4);
+        const y = pad.t + cH - bH;
+        ctx.fillStyle = '#601424';
+        ctx.beginPath(); ctx.roundRect(x, y, barW, bH, [3, 3, 0, 0]); ctx.fill();
+        ctx.fillStyle = '#601424'; ctx.font = `bold 9px Plus Jakarta Sans`; ctx.textAlign = 'center';
+        ctx.fillText(qty, x + barW / 2, y - 3);
+        ctx.fillStyle = '#6b7280'; ctx.font = '8px Plus Jakarta Sans';
+        const label = name.length > 10 ? name.substring(0, 10) + '…' : name;
+        ctx.fillText(label, x + barW / 2, pad.t + cH + 14);
+    });
+}
+
+// ── NOTIFICATIONS ──
+function checkNotifPermission() {
+    if ('Notification' in window && Notification.permission === 'default') {
+        document.getElementById('notif-banner').style.display = 'flex';
+    }
+}
+function requestNotifPermission() {
+    Notification.requestPermission().then(p => {
+        if (p === 'granted') {
+            document.getElementById('notif-banner').style.display = 'none';
+            showToast('✅ Notifications activées');
+        }
+    });
+}
+
+// ── SYNC STATUS ──
+function setSyncStatus(live) {
+    const dot = document.getElementById('sync-dot');
+    const label = document.getElementById('sync-indicator');
+    dot.className = 'sync-dot' + (live ? ' live' : '');
+    label.innerHTML = `<span class="sync-dot ${live ? 'live' : ''}"></span>${live ? 'Temps réel' : 'Reconnexion...'}`;
+}
+
+// ── TOASTS ──
+function showToast(msg, type = 'success') {
+    const tc = document.getElementById('toast-container');
+    const t = document.createElement('div');
+    t.className = 'toast ' + (type || '');
+    t.textContent = msg;
+    tc.appendChild(t);
+    setTimeout(() => t.remove(), type === 'order' ? 8000 : 4000);
+}
+
+// ── TABS ──
+function switchTab(evt, tabId) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(tabId).classList.add('active');
+    evt.currentTarget.classList.add('active');
+}
+
+// ── REFRESH ──
+function refreshAll() {
+    renderDropdowns();
+    renderInventoryList();
+    renderOrders();
+    calculateStats();
+}
+
+// ── DROPDOWNS ──
+function renderDropdowns() {
+    const mSel = document.getElementById('select-menu-parent'); mSel.innerHTML = '';
+    appState.menus.forEach(m => mSel.innerHTML += `<option value="${m.id}">${m.name}</option>`);
+    const cSel = document.getElementById('select-cat-parent'); cSel.innerHTML = '';
+    appState.menus.forEach(m => {
+        const grp = document.createElement('optgroup'); grp.label = m.name;
+        appState.categories.filter(c => c.menuId === m.id).forEach(c => grp.innerHTML += `<option value="${c.id}">${c.name}</option>`);
+        cSel.appendChild(grp);
+    });
+}
+
+// ── CREATE ──
+async function adminCreateNewMenu() {
+    const val = document.getElementById('add-menu-name').value.trim();
+    if (!val) return;
+    appState.menus.push({ id: 'm_' + Date.now(), name: val });
+    document.getElementById('add-menu-name').value = '';
+    await saveState(); refreshAll(); showToast(`Menu "${val}" créé`);
+}
+async function adminCreateNewCategory() {
+    const mId = document.getElementById('select-menu-parent').value;
+    const val = document.getElementById('add-cat-name').value.trim();
+    if (!val) return;
+    appState.categories.push({ id: 'c_' + Date.now(), menuId: mId, name: val });
+    document.getElementById('add-cat-name').value = '';
+    await saveState(); refreshAll(); showToast(`Catégorie "${val}" créée`);
+}
+async function adminCreateProduct() {
+    const catId = document.getElementById('select-cat-parent').value;
+    const name = document.getElementById('add-prod-name').value.trim();
+    const price = parseFloat(document.getElementById('add-prod-price').value);
+    const desc = document.getElementById('add-prod-desc').value.trim();
+    if (!name || isNaN(price)) return alert('Nom et prix requis.');
+    appState.products.push({ id: 'p_' + Date.now(), catId, name, price, desc, isHidden: false });
+    ['add-prod-name','add-prod-price','add-prod-desc'].forEach(id => document.getElementById(id).value = '');
+    await saveState(); refreshAll(); showToast(`"${name}" ajouté`);
+}
+
+// ── INVENTORY ──
+function renderInventoryList() {
+    const container = document.getElementById('admin-product-inventory');
+    container.innerHTML = '';
+    appState.products.forEach(p => {
+        const cat = appState.categories.find(c => c.id === p.catId);
+        const menu = cat ? appState.menus.find(m => m.id === cat.menuId) : null;
+        const wrapper = document.createElement('div');
+        const row = document.createElement('div');
+        row.className = `item-row ${p.isHidden ? 'hidden-item' : ''}`;
+        row.innerHTML = `
+            <div class="item-info">
+                <div class="item-name">${p.name} — <span style="color:var(--burgundy);font-weight:700;">${parseFloat(p.price).toFixed(2)}€</span></div>
+                <div class="item-sub">${menu?.name || '–'} › ${cat?.name || '–'}</div>
+            </div>
+            <div class="action-icons">
+                <button class="btn-icon" onclick="openInlineEdit('${p.id}')" title="Modifier">✏️</button>
+                <button class="btn-icon" onclick="toggleVisibility('${p.id}')">${p.isHidden ? '🙈' : '👁️'}</button>
+                <button class="btn-icon" onclick="deleteProduct('${p.id}')">🗑️</button>
+            </div>`;
+        const editForm = document.createElement('div');
+        editForm.className = 'inline-edit-form';
+        editForm.id = `edit-form-${p.id}`;
+        editForm.innerHTML = `
+            <input type="text" id="edit-name-${p.id}" value="${p.name}" placeholder="Nom" style="flex:2;min-width:90px;">
+            <input type="number" id="edit-price-${p.id}" value="${p.price}" step="0.10" min="0" style="width:65px;">
+            <input type="text" id="edit-desc-${p.id}" value="${p.desc}" placeholder="Description" style="flex:3;min-width:100px;">
+            <button class="btn-save-inline" onclick="saveInlineEdit('${p.id}')">Sauver</button>
+            <button class="btn-cancel-inline" onclick="closeInlineEdit('${p.id}')">✕</button>`;
+        wrapper.appendChild(row); wrapper.appendChild(editForm);
+        container.appendChild(wrapper);
+    });
+}
+
+function openInlineEdit(id) {
+    document.querySelectorAll('.inline-edit-form').forEach(f => f.classList.remove('open'));
+    document.getElementById(`edit-form-${id}`).classList.add('open');
+}
+function closeInlineEdit(id) { document.getElementById(`edit-form-${id}`).classList.remove('open'); }
+
+async function saveInlineEdit(id) {
+    const p = appState.products.find(x => x.id === id);
+    if (!p) return;
+    p.name = document.getElementById(`edit-name-${id}`).value.trim();
+    p.price = parseFloat(document.getElementById(`edit-price-${id}`).value);
+    p.desc = document.getElementById(`edit-desc-${id}`).value.trim();
+    await saveState(); refreshAll(); showToast(`"${p.name}" mis à jour`);
+}
+
+async function toggleVisibility(prodId) {
+    const p = appState.products.find(x => x.id === prodId);
+    if (p) { p.isHidden = !p.isHidden; await saveState(); renderInventoryList(); }
+}
+
+async function deleteProduct(prodId) {
+    if (!confirm('Supprimer cet article ?')) return;
+    const p = appState.products.find(x => x.id === prodId);
+    appState.products = appState.products.filter(x => x.id !== prodId);
+    await saveState(); refreshAll(); showToast(`"${p?.name}" supprimé`);
+}
+
+// ── QR ──
+function generateQRCode() {
+    const url = document.getElementById('qr-url-input').value.trim();
+    if (!url) return;
+    const size = parseInt(document.getElementById('qr-size').value);
+    const wrap = document.getElementById('qr-canvas-wrap'); wrap.innerHTML = '';
+    new QRCode(wrap, { text: url, width: size, height: size, colorDark: '#601424', colorLight: '#ede2cf', correctLevel: QRCode.CorrectLevel.H });
+    document.getElementById('qr-url-label').textContent = url;
+    document.getElementById('qr-display').style.display = 'block';
+}
+function downloadQR() {
+    const img = document.querySelector('#qr-canvas-wrap img');
+    if (!img) return;
+    const a = document.createElement('a'); a.href = img.src; a.download = 'bistrot-qr.png'; a.click();
+}
+</script>
+</body>
+</html>
