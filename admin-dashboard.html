@@ -245,20 +245,78 @@
 
         <!-- STATS -->
         <div id="tab-dashboard" class="tab-content">
-            <div class="card">
-                <h2>📅 Analyse des ventes</h2>
-                <div class="period-selector">
-                    <button class="btn-period active" onclick="changePeriod('today',this)">Auj.</button>
-                    <button class="btn-period" onclick="changePeriod('week',this)">7j</button>
-                    <button class="btn-period" onclick="changePeriod('month',this)">Mois</button>
-                    <button class="btn-period" onclick="changePeriod('all',this)">Tout</button>
+            <!-- PÉRIODE -->
+            <div class="period-selector" style="margin-bottom:14px;">
+                <button class="btn-period active" onclick="changePeriod('today',this)">Auj.</button>
+                <button class="btn-period" onclick="changePeriod('week',this)">7j</button>
+                <button class="btn-period" onclick="changePeriod('month',this)">Mois</button>
+                <button class="btn-period" onclick="changePeriod('all',this)">Tout</button>
+            </div>
+
+            <!-- KPIs PRINCIPAUX -->
+            <div class="stats-grid" style="grid-template-columns:repeat(3,1fr);margin-bottom:12px;">
+                <div class="stat-card"><label>Chiffre d'affaires</label><span id="stat-ca">0.00€</span></div>
+                <div class="stat-card"><label>Commandes</label><span id="stat-orders">0</span></div>
+                <div class="stat-card"><label>Panier moyen</label><span id="stat-panier">0.00€</span></div>
+            </div>
+
+            <!-- OBJECTIF JOURNALIER -->
+            <div class="card" style="margin-bottom:12px;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                    <h2 style="margin:0;">🎯 Objectif journalier</h2>
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <input type="number" id="daily-goal" value="500" min="0" step="50"
+                            style="width:70px;padding:4px 6px;border:1px solid #d1d5db;border-radius:5px;font-size:0.82rem;"
+                            onchange="calculateStats()">
+                        <span style="font-size:0.78rem;color:var(--muted);">€</span>
+                    </div>
                 </div>
-                <div class="stats-grid">
-                    <div class="stat-card"><label>Chiffre d'affaires</label><span id="stat-ca">0.00€</span></div>
-                    <div class="stat-card"><label>Commandes</label><span id="stat-orders">0</span></div>
-                    <div class="stat-card"><label>Panier moyen</label><span id="stat-panier">0.00€</span></div>
+                <div style="background:#f3f4f6;border-radius:20px;height:12px;overflow:hidden;">
+                    <div id="goal-bar" style="height:100%;background:var(--burgundy);border-radius:20px;transition:width 0.5s ease;width:0%;"></div>
                 </div>
-                <canvas id="sales-chart" style="width:100%;height:120px;"></canvas>
+                <div style="display:flex;justify-content:space-between;margin-top:5px;font-size:0.75rem;color:var(--muted);">
+                    <span id="goal-current">0€</span>
+                    <span id="goal-pct">0%</span>
+                    <span id="goal-target">objectif : 500€</span>
+                </div>
+            </div>
+
+            <!-- GRAPHIQUE VENTES PAR HEURE -->
+            <div class="card" style="margin-bottom:12px;">
+                <h2>⏰ Ventes par heure</h2>
+                <canvas id="hourly-chart" style="width:100%;height:100px;"></canvas>
+            </div>
+
+            <!-- COMPARAISON J vs J-7 -->
+            <div class="card" style="margin-bottom:12px;">
+                <h2>📊 Ventes par article</h2>
+                <canvas id="sales-chart" style="width:100%;height:110px;"></canvas>
+            </div>
+
+            <!-- STATS EN 2 COLONNES -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <!-- RÉPARTITION CATÉGORIES -->
+                <div class="card">
+                    <h2 style="font-size:0.82rem;">🍷 Par catégorie</h2>
+                    <div id="cat-breakdown" style="font-size:0.78rem;"></div>
+                </div>
+                <!-- ANALYSE SERVICE -->
+                <div class="card">
+                    <h2 style="font-size:0.82rem;">⚡ Service</h2>
+                    <div id="service-stats" style="font-size:0.78rem;"></div>
+                </div>
+            </div>
+
+            <!-- TABLES ACTIVES + ARTICLES DORMANTS -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+                <div class="card">
+                    <h2 style="font-size:0.82rem;">📍 Tables actives</h2>
+                    <div id="table-stats" style="font-size:0.78rem;"></div>
+                </div>
+                <div class="card">
+                    <h2 style="font-size:0.82rem;">😴 Articles inactifs</h2>
+                    <div id="inactive-products" style="font-size:0.78rem;"></div>
+                </div>
             </div>
         </div>
 
@@ -323,10 +381,13 @@
                 <div class="form-group"><label>URL du menu client :</label><input type="text" id="qr-url-input" class="form-control" value="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html"></div>
                 <div class="form-group"><label>Taille :</label><select id="qr-size" class="form-control"><option value="160">Petit</option><option value="220" selected>Moyen</option><option value="300">Grand</option></select></div>
                 <button class="btn-submit" style="background:var(--burgundy);" onclick="generateQRCode()">Générer</button>
-                <div id="qr-display" style="display:none;margin-top:16px;">
-                    <div id="qr-canvas-wrap"></div>
+                <div id="qr-display" style="display:none;margin-top:16px;text-align:center;">
+                    <div id="qr-canvas-wrap" style="display:inline-block;padding:12px;background:white;border-radius:10px;box-shadow:0 2px 8px rgba(0,0,0,0.1);"></div>
                     <div class="qr-url-display" id="qr-url-label"></div>
-                    <button class="btn-submit" style="background:var(--success);margin-top:6px;" onclick="downloadQR()">⬇️ Télécharger PNG</button>
+                    <div style="display:flex;gap:8px;margin-top:10px;">
+                        <button class="btn-submit" style="background:var(--success);flex:1;" onclick="downloadQR()">⬇️ Télécharger PNG</button>
+                        <button class="btn-submit" style="background:var(--info);flex:1;" onclick="emailQR()">📧 Envoyer par mail</button>
+                    </div>
                 </div>
             </div>
 
@@ -392,14 +453,14 @@ function doLogout() {
     document.getElementById('login-pass').value = '';
 }
 // Auto-login si session active
-(function() {
+document.addEventListener('DOMContentLoaded', function() {
     const saved = sessionStorage.getItem('bistrot_user');
     if (saved && CREDENTIALS[saved]) {
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('header-user').textContent = '👤 ' + saved;
-        window.addEventListener('DOMContentLoaded', () => initAdmin());
+        initAdmin();
     }
-})();
+});
 document.addEventListener('keydown', e => {
     if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
 });
@@ -627,15 +688,15 @@ function changePeriod(period, btn) {
 
 function calculateStats() {
     const now = new Date();
-    let filtered = allOrders;
+    let filtered = allOrders.filter(o => o.status !== 'cancelled');
 
     if (appState.currentPeriod === 'today') {
-        filtered = allOrders.filter(o => new Date(o.created_at).toDateString() === now.toDateString());
+        filtered = filtered.filter(o => new Date(o.created_at).toDateString() === now.toDateString());
     } else if (appState.currentPeriod === 'week') {
         const week = new Date(now); week.setDate(now.getDate() - 7);
-        filtered = allOrders.filter(o => new Date(o.created_at) >= week);
+        filtered = filtered.filter(o => new Date(o.created_at) >= week);
     } else if (appState.currentPeriod === 'month') {
-        filtered = allOrders.filter(o => {
+        filtered = filtered.filter(o => {
             const d = new Date(o.created_at);
             return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         });
@@ -643,10 +704,163 @@ function calculateStats() {
 
     const ca = filtered.reduce((s, o) => s + parseFloat(o.total || 0), 0);
     const count = filtered.length;
+    const pm = count > 0 ? ca / count : 0;
+
     document.getElementById('stat-ca').textContent = ca.toFixed(2) + '€';
     document.getElementById('stat-orders').textContent = count;
-    document.getElementById('stat-panier').textContent = (count > 0 ? ca / count : 0).toFixed(2) + '€';
+    document.getElementById('stat-panier').textContent = pm.toFixed(2) + '€';
+
+    // Objectif journalier
+    const goalEl = document.getElementById('daily-goal');
+    if (goalEl) {
+        const goal = parseFloat(goalEl.value) || 500;
+        const todayCA = allOrders.filter(o => o.status !== 'cancelled' && new Date(o.created_at).toDateString() === now.toDateString())
+            .reduce((s, o) => s + parseFloat(o.total || 0), 0);
+        const pct = Math.min(100, Math.round((todayCA / goal) * 100));
+        const bar = document.getElementById('goal-bar');
+        if (bar) {
+            bar.style.width = pct + '%';
+            bar.style.background = pct >= 100 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#601424';
+        }
+        const gc = document.getElementById('goal-current');
+        const gp = document.getElementById('goal-pct');
+        const gt = document.getElementById('goal-target');
+        if (gc) gc.textContent = todayCA.toFixed(0) + '€';
+        if (gp) gp.textContent = pct + '%';
+        if (gt) gt.textContent = 'objectif : ' + goal + '€';
+    }
+
     renderChart(filtered);
+    renderHourlyChart(filtered);
+    renderCatBreakdown(filtered);
+    renderServiceStats();
+    renderTableStats(filtered);
+    renderInactiveProducts();
+}
+
+function renderHourlyChart(orders) {
+    const canvas = document.getElementById('hourly-chart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    const W = canvas.offsetWidth || 360;
+    canvas.width = W * window.devicePixelRatio;
+    canvas.height = 100 * window.devicePixelRatio;
+    canvas.style.width = W + 'px'; canvas.style.height = '100px';
+    ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+    ctx.clearRect(0, 0, W, 100);
+
+    // Agréger par heure
+    const hours = Array(24).fill(0);
+    orders.forEach(o => { hours[new Date(o.created_at).getHours()] += parseFloat(o.total || 0); });
+
+    // Afficher seulement 8h-23h
+    const relevant = hours.slice(8, 24);
+    const maxVal = Math.max(...relevant, 1);
+    const pad = { l: 6, r: 6, t: 8, b: 20 };
+    const cW = W - pad.l - pad.r;
+    const cH = 100 - pad.t - pad.b;
+    const barW = Math.floor(cW / relevant.length) - 2;
+
+    ctx.strokeStyle = '#e5e7eb'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(pad.l, pad.t + cH); ctx.lineTo(W - pad.r, pad.t + cH); ctx.stroke();
+
+    relevant.forEach((val, i) => {
+        const x = pad.l + i * (barW + 2);
+        const bH = val > 0 ? Math.max((val / maxVal) * cH, 3) : 2;
+        const y = pad.t + cH - bH;
+        const hour = i + 8;
+        const isNow = new Date().getHours() === hour;
+
+        ctx.fillStyle = isNow ? '#f59e0b' : (val > 0 ? '#601424' : '#e5e7eb');
+        ctx.beginPath(); ctx.roundRect(x, y, barW, bH, [2,2,0,0]); ctx.fill();
+
+        if (i % 3 === 0) {
+            ctx.fillStyle = '#9ca3af'; ctx.font = '8px Plus Jakarta Sans'; ctx.textAlign = 'center';
+            ctx.fillText(hour + 'h', x + barW/2, pad.t + cH + 12);
+        }
+        if (val > 0) {
+            ctx.fillStyle = '#601424'; ctx.font = 'bold 7px Plus Jakarta Sans'; ctx.textAlign = 'center';
+            ctx.fillText(val.toFixed(0) + '€', x + barW/2, y - 2);
+        }
+    });
+}
+
+function renderCatBreakdown(orders) {
+    const el = document.getElementById('cat-breakdown');
+    if (!el) return;
+    const catTotals = {};
+    orders.forEach(o => (o.items || []).forEach(item => {
+        const prod = appState.products.find(p => p.id === item.productId || p.name === item.name);
+        const cat = prod ? appState.categories.find(c => c.id === prod.catId) : null;
+        const catName = cat?.name || 'Autre';
+        catTotals[catName] = (catTotals[catName] || 0) + (item.price * item.qty);
+    }));
+    const total = Object.values(catTotals).reduce((s, v) => s + v, 0);
+    const sorted = Object.entries(catTotals).sort((a, b) => b[1] - a[1]);
+    if (!sorted.length) { el.innerHTML = '<div style="color:var(--muted);font-style:italic;">Aucune donnée</div>'; return; }
+    el.innerHTML = sorted.map(([name, val]) => {
+        const pct = total > 0 ? Math.round((val / total) * 100) : 0;
+        return '<div style="margin-bottom:6px;">'
+            + '<div style="display:flex;justify-content:space-between;margin-bottom:2px;">'
+            + '<span style="font-weight:600;">' + name + '</span>'
+            + '<span style="color:var(--burgundy);font-weight:700;">' + pct + '%</span>'
+            + '</div>'
+            + '<div style="background:#f3f4f6;border-radius:10px;height:5px;">'
+            + '<div style="width:' + pct + '%;background:var(--burgundy);border-radius:10px;height:5px;"></div>'
+            + '</div></div>';
+    }).join('');
+}
+
+function renderServiceStats() {
+    const el = document.getElementById('service-stats');
+    if (!el) return;
+    const today = allOrders.filter(o => new Date(o.created_at).toDateString() === new Date().toDateString());
+    const cancelled = today.filter(o => o.status === 'cancelled').length;
+    const total = today.length;
+    const cancelRate = total > 0 ? Math.round((cancelled / total) * 100) : 0;
+    const pending = allOrders.filter(o => o.status === 'pending' || o.status === 'preparing').length;
+
+    el.innerHTML = '<div style="display:flex;flex-direction:column;gap:6px;">'
+        + '<div style="display:flex;justify-content:space-between;"><span>En attente</span><strong style="color:var(--warning);">' + pending + '</strong></div>'
+        + '<div style="display:flex;justify-content:space-between;"><span>Annulations</span><strong style="color:var(--danger);">' + cancelled + '</strong></div>'
+        + '<div style="display:flex;justify-content:space-between;"><span>Taux annulation</span><strong>' + cancelRate + '%</strong></div>'
+        + '<div style="display:flex;justify-content:space-between;"><span>Cmd. aujourd'hui</span><strong>' + total + '</strong></div>'
+        + '</div>';
+}
+
+function renderTableStats(orders) {
+    const el = document.getElementById('table-stats');
+    if (!el) return;
+    const tableCounts = {};
+    orders.forEach(o => {
+        if (o.table_number) tableCounts[o.table_number] = (tableCounts[o.table_number] || 0) + 1;
+    });
+    const sorted = Object.entries(tableCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+    if (!sorted.length) { el.innerHTML = '<div style="color:var(--muted);font-style:italic;">Aucune donnée</div>'; return; }
+    el.innerHTML = sorted.map(([table, count], i) =>
+        '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #f3f4f6;">'
+        + '<span>' + (i === 0 ? '🏆 ' : '') + table + '</span>'
+        + '<strong style="color:var(--burgundy);">' + count + ' cmd</strong>'
+        + '</div>'
+    ).join('');
+}
+
+function renderInactiveProducts() {
+    const el = document.getElementById('inactive-products');
+    if (!el) return;
+    const orderedIds = new Set();
+    allOrders.forEach(o => (o.items || []).forEach(i => orderedIds.add(i.productId || i.name)));
+
+    const inactive = appState.products.filter(p => !p.isHidden && !orderedIds.has(p.id) && !orderedIds.has(p.name));
+    if (!inactive.length) {
+        el.innerHTML = '<div style="color:var(--success);font-weight:600;">✅ Tous les articles ont été commandés</div>';
+        return;
+    }
+    el.innerHTML = inactive.slice(0, 5).map(p =>
+        '<div style="padding:3px 0;border-bottom:1px dashed #f3f4f6;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'
+        + '😴 ' + p.name
+        + '</div>'
+    ).join('') + (inactive.length > 5 ? '<div style="color:var(--muted);font-size:0.72rem;margin-top:4px;">+' + (inactive.length-5) + ' autres</div>' : '');
 }
 
 function renderChart(orders) {
@@ -1154,6 +1368,27 @@ function downloadQR() {
     const img = document.querySelector('#qr-canvas-wrap img');
     if (!img) return;
     const a = document.createElement('a'); a.href = img.src; a.download = 'bistrot-qr.png'; a.click();
+}
+
+function emailQR() {
+    const url = document.getElementById('qr-url-label')?.textContent || '';
+    if (!url) return alert('Générez d'abord un QR code.');
+    const subject = encodeURIComponent('QR Code — Menu Le Bistrot des Halles');
+    const body = encodeURIComponent(
+        'Bonjour,
+
+Voici le lien vers le menu digital du Bistrot des Halles :
+
+'
+        + url + '
+
+'
+        + 'Scannez le QR code ou cliquez sur le lien pour accéder au menu et commander directement depuis votre table.
+
+'
+        + 'Le Bistrot des Halles — Versailles'
+    );
+    window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
 }
 </script>
 </body>
