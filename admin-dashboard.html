@@ -716,18 +716,42 @@ function renderInventoryList() {
         const menu = cat ? appState.menus.find(m => m.id === cat.menuId) : null;
         const wrapper = document.createElement('div');
         const row = document.createElement('div');
-        row.className = `item-row ${p.isHidden ? 'hidden-item' : ''}`;
-        row.innerHTML = `
-            ${p.mediaUrl ? `<img src="${p.mediaUrl}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">` : ''}
-            <div class="item-info">
-                <div class="item-name">${p.name} — <span style="color:var(--burgundy);font-weight:700;">${parseFloat(p.price).toFixed(2)}€</span></div>
-                <div class="item-sub">${menu?.name || '–'} › ${cat?.name || '–'}</div>
-            </div>
-            <div class="action-icons">
-                <button class="btn-icon" onclick="openInlineEdit('${p.id}')" title="Modifier">✏️</button>
-                <button class="btn-icon" onclick="toggleVisibility('${p.id}')">${p.isHidden ? '🙈' : '👁️'}</button>
-                <button class="btn-icon" onclick="deleteProduct('${p.id}')">🗑️</button>
-            </div>`;
+        row.className = 'item-row' + (p.isHidden ? ' hidden-item' : '');
+
+        // Miniature
+        if (p.mediaUrl) {
+            const thumb = document.createElement('img');
+            thumb.src = p.mediaUrl;
+            thumb.style.cssText = 'width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;';
+            thumb.onerror = function() { this.style.display='none'; };
+            row.appendChild(thumb);
+        }
+
+        // Info + actions
+        const infoDiv = document.createElement('div');
+        infoDiv.className = 'item-info';
+        infoDiv.innerHTML = `<div class="item-name">${p.name} — <span style="color:var(--burgundy);font-weight:700;">${parseFloat(p.price).toFixed(2)}€</span></div><div class="item-sub">${menu?.name || '–'} › ${cat?.name || '–'}</div>`;
+        row.appendChild(infoDiv);
+
+        const actionsDiv = document.createElement('div');
+        actionsDiv.className = 'action-icons';
+
+        const btnEdit = document.createElement('button');
+        btnEdit.className = 'btn-icon'; btnEdit.title = 'Modifier'; btnEdit.textContent = '✏️';
+        btnEdit.onclick = () => openInlineEdit(p.id);
+
+        const btnVis = document.createElement('button');
+        btnVis.className = 'btn-icon'; btnVis.textContent = p.isHidden ? '🙈' : '👁️';
+        btnVis.onclick = () => toggleVisibility(p.id);
+
+        const btnDel = document.createElement('button');
+        btnDel.className = 'btn-icon'; btnDel.textContent = '🗑️';
+        btnDel.onclick = () => deleteProduct(p.id);
+
+        actionsDiv.appendChild(btnEdit);
+        actionsDiv.appendChild(btnVis);
+        actionsDiv.appendChild(btnDel);
+        row.appendChild(actionsDiv);
         const editForm = document.createElement('div');
         editForm.className = 'inline-edit-form';
         editForm.id = `edit-form-${p.id}`;
