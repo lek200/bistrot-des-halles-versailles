@@ -111,6 +111,43 @@
         .btn-save-inline { background: var(--success); color: white; border: none; padding: 6px 10px; border-radius: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
         .btn-cancel-inline { background: #e5e7eb; color: #374151; border: none; padding: 6px 8px; border-radius: 5px; font-size: 0.78rem; cursor: pointer; }
 
+        /* ARBORESCENCE CARTE */
+        .tree-menu { margin-bottom: 14px; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+        .tree-menu-header { background: var(--burgundy); color: white; padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+        .tree-menu-name { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 700; }
+        .tree-menu-actions { display: flex; gap: 6px; }
+        .tree-btn { background: rgba(255,255,255,0.15); border: none; color: white; padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+        .tree-btn:hover { background: rgba(255,255,255,0.3); }
+        .tree-btn.danger { background: rgba(239,68,68,0.3); }
+
+        .tree-cat { border-bottom: 1px solid #f3f4f6; }
+        .tree-cat-header { background: #fdf8f2; padding: 8px 14px 8px 24px; display: flex; align-items: center; justify-content: space-between; cursor: pointer; }
+        .tree-cat-name { font-size: 0.85rem; font-weight: 700; color: #374151; display: flex; align-items: center; gap: 6px; }
+        .tree-cat-toggle { font-size: 0.7rem; color: var(--muted); }
+        .tree-cat-actions { display: flex; gap: 5px; }
+        .tree-btn-sm { background: none; border: 1px solid #d1d5db; color: #6b7280; padding: 3px 7px; border-radius: 4px; font-size: 0.7rem; cursor: pointer; }
+        .tree-btn-sm:hover { background: #f3f4f6; }
+        .tree-btn-sm.danger { border-color: #fca5a5; color: var(--danger); }
+
+        .tree-products { display: none; }
+        .tree-products.open { display: block; }
+        .tree-product { display: flex; align-items: center; padding: 7px 14px 7px 36px; border-bottom: 1px solid #f9fafb; gap: 8px; cursor: grab; transition: background 0.15s; }
+        .tree-product:hover { background: #f9fafb; }
+        .tree-product.dragging { opacity: 0.4; background: #eff6ff; }
+        .tree-product.drag-over { border-top: 2px solid var(--burgundy); }
+        .drag-handle { color: #9ca3af; font-size: 0.85rem; cursor: grab; flex-shrink: 0; }
+        .tree-prod-thumb { width: 28px; height: 28px; border-radius: 4px; object-fit: cover; flex-shrink: 0; }
+        .tree-prod-info { flex: 1; min-width: 0; }
+        .tree-prod-name { font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .tree-prod-price { font-size: 0.75rem; color: var(--burgundy); font-weight: 700; }
+        .tree-prod-hidden { opacity: 0.45; }
+
+        /* INLINE EDIT ARBRE */
+        .tree-inline-edit { display: none; background: #f0fdf4; border-top: 1px solid #bbf7d0; padding: 10px 14px 10px 36px; gap: 6px; flex-wrap: wrap; }
+        .tree-inline-edit.open { display: flex; }
+        .tree-inline-edit input { padding: 5px 8px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 0.78rem; font-family: inherit; outline: none; }
+        .tree-inline-edit input:focus { border-color: var(--success); }
+
         /* QR */
         #qr-display { text-align: center; padding: 16px 0; }
         .qr-url-display { background: #f3f4f6; border: 1px dashed #d1d5db; border-radius: 6px; padding: 10px; font-size: 0.78rem; color: #374151; word-break: break-all; margin: 10px 0; font-family: monospace; }
@@ -198,19 +235,28 @@
 
         <!-- CARTE -->
         <div id="tab-carte" class="tab-content">
-            <div class="card">
-                <h2>📁 Créer un menu</h2>
-                <div class="form-group"><input type="text" id="add-menu-name" class="form-control" placeholder="Ex : Formule du Midi"></div>
-                <button class="btn-submit" style="background:var(--burgundy);" onclick="adminCreateNewMenu()">Déployer</button>
+            <!-- FORMULAIRES AJOUT -->
+            <div style="display:flex;gap:8px;margin-bottom:12px;">
+                <button class="btn-submit" style="background:var(--burgundy);flex:1;padding:8px;" onclick="toggleAddForm('form-add-menu')">+ Menu</button>
+                <button class="btn-submit" style="background:var(--info);flex:1;padding:8px;" onclick="toggleAddForm('form-add-cat')">+ Catégorie</button>
+                <button class="btn-submit" style="background:var(--success);flex:1;padding:8px;" onclick="toggleAddForm('form-add-prod')">+ Article</button>
             </div>
-            <div class="card">
-                <h2>🗂️ Ajouter une catégorie</h2>
+
+            <div id="form-add-menu" class="card" style="display:none;">
+                <h2>📁 Nouveau menu</h2>
+                <div class="form-group"><input type="text" id="add-menu-name" class="form-control" placeholder="Ex : Formule du Midi"></div>
+                <button class="btn-submit" style="background:var(--burgundy);" onclick="adminCreateNewMenu()">Créer</button>
+            </div>
+
+            <div id="form-add-cat" class="card" style="display:none;">
+                <h2>🗂️ Nouvelle catégorie</h2>
                 <div class="form-group"><label>Menu :</label><select id="select-menu-parent" class="form-control"></select></div>
                 <div class="form-group"><input type="text" id="add-cat-name" class="form-control" placeholder="Ex : Vins Blancs"></div>
                 <button class="btn-submit" style="background:var(--info);" onclick="adminCreateNewCategory()">Créer</button>
             </div>
-            <div class="card">
-                <h2>🍷 Ajouter un article</h2>
+
+            <div id="form-add-prod" class="card" style="display:none;">
+                <h2>🍷 Nouvel article</h2>
                 <div class="form-group"><label>Catégorie :</label><select id="select-cat-parent" class="form-control"></select></div>
                 <div style="display:flex;gap:8px;margin-bottom:10px;">
                     <input type="text" id="add-prod-name" class="form-control" placeholder="Nom" style="flex:2;">
@@ -218,10 +264,16 @@
                 </div>
                 <div class="form-group"><input type="text" id="add-prod-desc" class="form-control" placeholder="Description, allergènes..."></div>
                 <div class="form-group">
-                    <label>📸 Photo ou vidéo (URL) <span style="font-weight:400;color:var(--muted);">— visible sur le menu digital uniquement</span></label>
-                    <input type="text" id="add-prod-media" class="form-control" placeholder="https://... (image jpg/png ou vidéo mp4)">
+                    <label>📸 Photo/Vidéo (URL)</label>
+                    <input type="text" id="add-prod-media" class="form-control" placeholder="https://... (jpg/png/mp4)">
                 </div>
                 <button class="btn-submit" style="background:var(--success);" onclick="adminCreateProduct()">Publier</button>
+            </div>
+
+            <!-- ARBORESCENCE -->
+            <div class="card" style="padding:12px;">
+                <h2>🗂️ Structure de la carte</h2>
+                <div id="carte-tree"></div>
             </div>
         </div>
 
@@ -611,6 +663,7 @@ function refreshAll() {
     renderInventoryList();
     renderOrders();
     calculateStats();
+    renderCarteTree();
 }
 
 // ── DROPDOWNS ──
@@ -721,6 +774,203 @@ async function deleteProduct(prodId) {
 }
 
 // ── QR ──
+// ── TOGGLE FORMULAIRES ──
+function toggleAddForm(id) {
+    const ids = ['form-add-menu','form-add-cat','form-add-prod'];
+    ids.forEach(fid => {
+        const el = document.getElementById(fid);
+        if (el) el.style.display = (fid === id && el.style.display === 'none') ? 'block' : 'none';
+    });
+}
+
+// ── ARBORESCENCE CARTE ──
+function renderCarteTree() {
+    const container = document.getElementById('carte-tree');
+    if (!container) return;
+    container.innerHTML = '';
+
+    appState.menus.forEach(menu => {
+        const menuDiv = document.createElement('div');
+        menuDiv.className = 'tree-menu';
+        menuDiv.innerHTML = `
+            <div class="tree-menu-header">
+                <span class="tree-menu-name">📋 ${menu.name}</span>
+                <div class="tree-menu-actions">
+                    <button class="tree-btn" onclick="editMenuInline('${menu.id}')">✏️</button>
+                    <button class="tree-btn danger" onclick="deleteMenu('${menu.id}')">🗑️</button>
+                </div>
+            </div>
+            <div id="menu-edit-${menu.id}" style="display:none;padding:10px 14px;background:#fff3f3;gap:6px;flex-wrap:wrap;" class="tree-inline-edit">
+                <input type="text" id="menu-name-input-${menu.id}" value="${menu.name}" style="flex:3;min-width:140px;">
+                <button class="btn-save-inline" onclick="saveMenuEdit('${menu.id}')">Sauver</button>
+                <button class="btn-cancel-inline" onclick="document.getElementById('menu-edit-${menu.id}').style.display='none'">✕</button>
+            </div>`;
+
+        const cats = appState.categories.filter(c => c.menuId === menu.id);
+        cats.forEach(cat => {
+            const prods = appState.products.filter(p => p.catId === cat.id);
+            const catDiv = document.createElement('div');
+            catDiv.className = 'tree-cat';
+            catDiv.innerHTML = `
+                <div class="tree-cat-header" onclick="toggleCatTree('tree-prods-${cat.id}')">
+                    <span class="tree-cat-name"><span class="tree-cat-toggle">▶</span> ${cat.name} <span style="color:var(--muted);font-weight:400;font-size:0.72rem;">(${prods.length})</span></span>
+                    <div class="tree-cat-actions" onclick="event.stopPropagation()">
+                        <button class="tree-btn-sm" onclick="editCatInline('${cat.id}')">✏️</button>
+                        <button class="tree-btn-sm danger" onclick="deleteCat('${cat.id}')">🗑️</button>
+                    </div>
+                </div>
+                <div id="cat-edit-${cat.id}" class="tree-inline-edit">
+                    <input type="text" id="cat-name-input-${cat.id}" value="${cat.name}" style="flex:3;min-width:140px;">
+                    <button class="btn-save-inline" onclick="saveCatEdit('${cat.id}')">Sauver</button>
+                    <button class="btn-cancel-inline" onclick="document.getElementById('cat-edit-${cat.id}').classList.remove('open')">✕</button>
+                </div>`;
+
+            const prodsDiv = document.createElement('div');
+            prodsDiv.className = 'tree-products';
+            prodsDiv.id = `tree-prods-${cat.id}`;
+
+            prods.forEach((p, idx) => {
+                const prodDiv = document.createElement('div');
+                prodDiv.className = `tree-product ${p.isHidden ? 'tree-prod-hidden' : ''}`;
+                prodDiv.draggable = true;
+                prodDiv.dataset.prodId = p.id;
+                prodDiv.dataset.catId = cat.id;
+                prodDiv.innerHTML = `
+                    <span class="drag-handle" title="Glisser pour réordonner">⠿</span>
+                    ${p.mediaUrl ? `<img class="tree-prod-thumb" src="${p.mediaUrl}" onerror="this.style.display='none'">` : '<div style="width:28px;height:28px;border-radius:4px;background:#f3f4f6;flex-shrink:0;"></div>'}
+                    <div class="tree-prod-info">
+                        <div class="tree-prod-name">${p.name}</div>
+                        <div class="tree-prod-price">${parseFloat(p.price).toFixed(2)}€ ${p.isHidden ? '· 🙈 masqué' : ''}</div>
+                    </div>
+                    <div style="display:flex;gap:4px;flex-shrink:0;">
+                        <button class="tree-btn-sm" onclick="editProdInline('${p.id}','${cat.id}')">✏️</button>
+                        <button class="tree-btn-sm" onclick="toggleVisibility('${p.id}')">${p.isHidden ? '👁️' : '🙈'}</button>
+                        <button class="tree-btn-sm danger" onclick="deleteProduct('${p.id}')">🗑️</button>
+                    </div>`;
+
+                // Drag & Drop
+                prodDiv.addEventListener('dragstart', e => {
+                    e.dataTransfer.setData('prodId', p.id);
+                    e.dataTransfer.setData('catId', cat.id);
+                    prodDiv.classList.add('dragging');
+                });
+                prodDiv.addEventListener('dragend', () => prodDiv.classList.remove('dragging'));
+                prodDiv.addEventListener('dragover', e => { e.preventDefault(); prodDiv.classList.add('drag-over'); });
+                prodDiv.addEventListener('dragleave', () => prodDiv.classList.remove('drag-over'));
+                prodDiv.addEventListener('drop', e => {
+                    e.preventDefault();
+                    prodDiv.classList.remove('drag-over');
+                    const fromId = e.dataTransfer.getData('prodId');
+                    const fromCatId = e.dataTransfer.getData('catId');
+                    if (fromId !== p.id && fromCatId === cat.id) reorderProducts(fromId, p.id, cat.id);
+                });
+
+                // Edit inline produit
+                const editDiv = document.createElement('div');
+                editDiv.className = 'tree-inline-edit';
+                editDiv.id = `prod-edit-${p.id}`;
+                editDiv.innerHTML = `
+                    <input type="text" id="pe-name-${p.id}" value="${p.name}" placeholder="Nom" style="flex:2;min-width:90px;">
+                    <input type="number" id="pe-price-${p.id}" value="${p.price}" step="0.10" min="0" style="width:62px;">
+                    <input type="text" id="pe-desc-${p.id}" value="${p.desc || ''}" placeholder="Description" style="flex:3;min-width:100px;">
+                    <input type="text" id="pe-media-${p.id}" value="${p.mediaUrl || ''}" placeholder="URL photo/vidéo" style="flex:3;min-width:100px;">
+                    <button class="btn-save-inline" onclick="saveProdEdit('${p.id}')">Sauver</button>
+                    <button class="btn-cancel-inline" onclick="document.getElementById('prod-edit-${p.id}').classList.remove('open')">✕</button>`;
+
+                prodsDiv.appendChild(prodDiv);
+                prodsDiv.appendChild(editDiv);
+            });
+
+            catDiv.appendChild(prodsDiv);
+            menuDiv.appendChild(catDiv);
+        });
+
+        container.appendChild(menuDiv);
+    });
+}
+
+function toggleCatTree(id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('open');
+    const header = el.previousElementSibling;
+    const toggle = header?.querySelector('.tree-cat-toggle');
+    if (toggle) toggle.textContent = el.classList.contains('open') ? '▼' : '▶';
+}
+
+// ── EDIT MENU / CAT / PROD INLINE ──
+function editMenuInline(id) {
+    const el = document.getElementById(`menu-edit-${id}`);
+    if (el) el.style.display = el.style.display === 'none' ? 'flex' : 'none';
+}
+async function saveMenuEdit(id) {
+    const menu = appState.menus.find(m => m.id === id);
+    const val = document.getElementById(`menu-name-input-${id}`)?.value.trim();
+    if (!menu || !val) return;
+    menu.name = val;
+    await saveState(); refreshAll(); showToast(`Menu renommé "${val}"`);
+}
+async function deleteMenu(id) {
+    const menu = appState.menus.find(m => m.id === id);
+    const cats = appState.categories.filter(c => c.menuId === id);
+    const prodCount = cats.reduce((s, c) => s + appState.products.filter(p => p.catId === c.id).length, 0);
+    if (!confirm(`Supprimer "${menu?.name}" ?
+${cats.length} catégorie(s) et ${prodCount} article(s) seront supprimés.`)) return;
+    appState.categories = appState.categories.filter(c => c.menuId !== id);
+    appState.products = appState.products.filter(p => !cats.find(c => c.id === p.catId));
+    appState.menus = appState.menus.filter(m => m.id !== id);
+    await saveState(); refreshAll(); showToast(`Menu supprimé`);
+}
+
+function editCatInline(id) {
+    document.querySelectorAll('.tree-inline-edit').forEach(e => e.classList.remove('open'));
+    document.getElementById(`cat-edit-${id}`)?.classList.add('open');
+}
+async function saveCatEdit(id) {
+    const cat = appState.categories.find(c => c.id === id);
+    const val = document.getElementById(`cat-name-input-${id}`)?.value.trim();
+    if (!cat || !val) return;
+    cat.name = val;
+    await saveState(); refreshAll(); showToast(`Catégorie renommée "${val}"`);
+}
+async function deleteCat(id) {
+    const cat = appState.categories.find(c => c.id === id);
+    const prods = appState.products.filter(p => p.catId === id);
+    if (!confirm(`Supprimer "${cat?.name}" et ses ${prods.length} article(s) ?`)) return;
+    appState.products = appState.products.filter(p => p.catId !== id);
+    appState.categories = appState.categories.filter(c => c.id !== id);
+    await saveState(); refreshAll(); showToast(`Catégorie supprimée`);
+}
+
+function editProdInline(prodId, catId) {
+    document.querySelectorAll('.tree-inline-edit').forEach(e => e.classList.remove('open'));
+    document.getElementById(`prod-edit-${prodId}`)?.classList.add('open');
+}
+async function saveProdEdit(id) {
+    const p = appState.products.find(x => x.id === id);
+    if (!p) return;
+    p.name = document.getElementById(`pe-name-${id}`)?.value.trim() || p.name;
+    p.price = parseFloat(document.getElementById(`pe-price-${id}`)?.value) || p.price;
+    p.desc = document.getElementById(`pe-desc-${id}`)?.value.trim() || '';
+    const media = document.getElementById(`pe-media-${id}`)?.value.trim();
+    p.mediaUrl = media || null;
+    p.mediaType = media ? (media.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'image') : null;
+    await saveState(); refreshAll(); showToast(`"${p.name}" mis à jour`);
+}
+
+// ── DRAG & DROP RÉORDONNANCEMENT ──
+async function reorderProducts(fromId, toId, catId) {
+    const prods = appState.products.filter(p => p.catId === catId);
+    const others = appState.products.filter(p => p.catId !== catId);
+    const fromIdx = prods.findIndex(p => p.id === fromId);
+    const toIdx = prods.findIndex(p => p.id === toId);
+    if (fromIdx === -1 || toIdx === -1) return;
+    const [moved] = prods.splice(fromIdx, 1);
+    prods.splice(toIdx, 0, moved);
+    appState.products = [...others, ...prods];
+    await saveState(); refreshAll(); showToast('Ordre mis à jour');
+}
+
 function generateQRCode() {
     const url = document.getElementById('qr-url-input').value.trim();
     if (!url) return;
