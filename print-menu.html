@@ -18,10 +18,19 @@ body {
 .toolbar {
     background: #601424; color: white;
     padding: 14px 20px; border-radius: 10px;
-    margin-bottom: 30px;
+    margin-bottom: 16px;
     display: flex; align-items: center; justify-content: space-between;
     flex-wrap: wrap; gap: 10px;
 }
+.menu-checkbox-label {
+    display: flex; align-items: center; gap: 8px;
+    background: #f9f5ef; border: 1.5px solid #b2a48f;
+    border-radius: 8px; padding: 8px 14px;
+    cursor: pointer; font-size: 0.88rem; font-weight: 600;
+    color: #601424; transition: all 0.15s;
+}
+.menu-checkbox-label input { accent-color: #601424; width: 16px; height: 16px; }
+.menu-checkbox-label:has(input:checked) { background: #601424; color: white; border-color: #601424; }
 .toolbar h2 { font-size: 1rem; font-family: Georgia, serif; }
 .toolbar-btns { display: flex; gap: 8px; }
 .btn { background: white; color: #601424; border: none; padding: 10px 20px; border-radius: 6px; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
@@ -59,6 +68,13 @@ body {
     </div>
 </div>
 
+<div id="selector" style="background:white;border-radius:10px;padding:16px;margin-bottom:24px;border:1px solid #d4c9b0;display:none;">
+    <div style="font-family:Georgia,serif;color:#601424;font-weight:700;font-size:1rem;margin-bottom:12px;">Sélectionner les menus à imprimer :</div>
+    <div id="menu-checkboxes" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;"></div>
+    <button onclick="applySelection()" style="background:#601424;color:white;border:none;padding:10px 22px;border-radius:6px;font-weight:700;font-size:0.9rem;cursor:pointer;">✅ Appliquer la sélection</button>
+    <button onclick="resetSelection()" style="background:#e5e7eb;color:#374151;border:none;padding:10px 16px;border-radius:6px;font-weight:700;font-size:0.9rem;cursor:pointer;margin-left:8px;">Tout afficher</button>
+</div>
+
 <div class="header">
     <h1>Le Bistrot des Halles</h1>
     <p>Versailles — Notre sélection du moment</p>
@@ -71,6 +87,8 @@ const SUPABASE_URL = 'https://mvxqpysdbngyazzzdbkc.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHFweXNkYm5neWF6enpkYmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTgyNzgsImV4cCI6MjA5NjkzNDI3OH0.Y0v4pHdGHF6oGMP4AbTyMjIAZLJk-S7iWL0p_SaRJAs';
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+let appState = null;
+
 async function loadAndRender() {
     try {
         const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
@@ -79,43 +97,65 @@ async function loadAndRender() {
             return;
         }
 
-        const state = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-        const { menus, categories, products } = state;
-
-        // Filtre par URL param ?menu=id1,id2
-        const params = new URLSearchParams(window.location.search);
-        const filter = params.get('menus');
-        const selectedMenus = filter
-            ? menus.filter(m => filter.split(',').includes(m.id))
-            : menus;
-
-        let html = '';
-        selectedMenus.forEach(m => {
-            html += '<div class="menu-section">';
-            html += '<div class="menu-title">' + m.name + '</div>';
-            categories.filter(c => c.menuId === m.id).forEach(cat => {
-                const prods = products.filter(p => p.catId === cat.id && !p.isHidden);
-                if (!prods.length) return;
-                html += '<div class="cat-block">';
-                html += '<div class="cat-title">' + cat.name + '</div>';
-                prods.forEach(p => {
-                    html += '<div class="prod-row">';
-                    html += '<div class="prod-left"><div class="prod-name">' + p.name + '</div>';
-                    if (p.desc) html += '<div class="prod-desc">' + p.desc + '</div>';
-                    html += '</div>';
-                    html += '<div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' €</div>';
-                    html += '</div>';
-                });
-                html += '</div>';
-            });
-            html += '</div>';
+        appState = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        
+        // Construire les checkboxes de sélection
+        const checkboxContainer = document.getElementById('menu-checkboxes');
+        appState.menus.forEach(m => {
+            const label = document.createElement('label');
+            label.className = 'menu-checkbox-label';
+            label.innerHTML = '<input type="checkbox" value="' + m.id + '" checked> ' + m.name;
+            checkboxContainer.appendChild(label);
         });
+        document.getElementById('selector').style.display = 'block';
 
-        document.getElementById('menu-content').innerHTML = html || '<div class="loading">Aucun article visible.</div>';
+        // Afficher tout par défaut
+        renderMenus(appState.menus);
     } catch(e) {
         console.error(e);
         document.getElementById('menu-content').innerHTML = '<div class="loading">Erreur de chargement.</div>';
     }
+}
+
+function renderMenus(selectedMenus) {
+    if (!appState) return;
+    const { categories, products } = appState;
+    let html = '';
+    selectedMenus.forEach(m => {
+        html += '<div class="menu-section">';
+        html += '<div class="menu-title">' + m.name + '</div>';
+        categories.filter(c => c.menuId === m.id).forEach(cat => {
+            const prods = products.filter(p => p.catId === cat.id && !p.isHidden);
+            if (!prods.length) return;
+            html += '<div class="cat-block">';
+            html += '<div class="cat-title">' + cat.name + '</div>';
+            prods.forEach(p => {
+                html += '<div class="prod-row">';
+                html += '<div class="prod-left"><div class="prod-name">' + p.name + '</div>';
+                if (p.desc) html += '<div class="prod-desc">' + p.desc + '</div>';
+                html += '</div>';
+                html += '<div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' €</div>';
+                html += '</div>';
+            });
+            html += '</div>';
+        });
+        html += '</div>';
+    });
+    document.getElementById('menu-content').innerHTML = html || '<div class="loading">Aucun article visible.</div>';
+}
+
+function applySelection() {
+    if (!appState) return;
+    const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
+    const selected = appState.menus.filter(m => checked.includes(m.id));
+    if (!selected.length) return alert('Cochez au moins un menu.');
+    renderMenus(selected);
+}
+
+function resetSelection() {
+    if (!appState) return;
+    document.querySelectorAll('#menu-checkboxes input').forEach(i => i.checked = true);
+    renderMenus(appState.menus);
 }
 
 loadAndRender();
