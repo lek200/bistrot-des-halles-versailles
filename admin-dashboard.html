@@ -824,7 +824,7 @@ function renderServiceStats() {
         + '<div style="display:flex;justify-content:space-between;"><span>En attente</span><strong style="color:var(--warning);">' + pending + '</strong></div>'
         + '<div style="display:flex;justify-content:space-between;"><span>Annulations</span><strong style="color:var(--danger);">' + cancelled + '</strong></div>'
         + '<div style="display:flex;justify-content:space-between;"><span>Taux annulation</span><strong>' + cancelRate + '%</strong></div>'
-        + '<div style="display:flex;justify-content:space-between;"><span>Cmd. aujourd'hui</span><strong>' + total + '</strong></div>'
+        + '<div style="display:flex;justify-content:space-between;"><span>Cmd. aujourd&#39;hui</span><strong>' + total + '</strong></div>'
         + '</div>';
 }
 
@@ -1372,23 +1372,10 @@ function downloadQR() {
 
 function emailQR() {
     const url = document.getElementById('qr-url-label')?.textContent || '';
-    if (!url) return alert('Générez d'abord un QR code.');
-    const subject = encodeURIComponent('QR Code — Menu Le Bistrot des Halles');
-    const body = encodeURIComponent(
-        'Bonjour,
-
-Voici le lien vers le menu digital du Bistrot des Halles :
-
-'
-        + url + '
-
-'
-        + 'Scannez le QR code ou cliquez sur le lien pour accéder au menu et commander directement depuis votre table.
-
-'
-        + 'Le Bistrot des Halles — Versailles'
-    );
-    window.location.href = 'mailto:?subject=' + subject + '&body=' + body;
+    if (!url) { alert("Generez d'abord un QR code."); return; }
+    const subject = encodeURIComponent('QR Code - Menu Le Bistrot des Halles');
+    const msg = ['Bonjour,', '', 'Lien menu digital :', '', url, '', 'Le Bistrot des Halles - Versailles'].join('\n');
+    window.location.href = 'mailto:?subject=' + subject + '&body=' + encodeURIComponent(msg);
 }
 </script>
 </body>
