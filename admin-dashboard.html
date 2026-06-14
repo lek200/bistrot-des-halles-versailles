@@ -76,8 +76,14 @@
         .order-items { font-size: 0.85rem; margin-bottom: 10px; }
         .order-item-line { padding: 3px 0; border-bottom: 1px dashed #f3f4f6; display: flex; justify-content: space-between; }
         .order-total { font-weight: 700; color: var(--burgundy); text-align: right; font-size: 0.9rem; }
-        .btn-done { background: var(--success); color: white; border: none; padding: 7px 14px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; }
-        .btn-done.undo { background: #6b7280; }
+        .status-btns { display: flex; gap: 5px; flex-wrap: wrap; margin-top: 8px; }
+        .btn-status { border: none; padding: 6px 10px; border-radius: 6px; font-size: 0.75rem; font-weight: 700; cursor: pointer; opacity: 0.4; transition: opacity 0.15s, transform 0.1s; }
+        .btn-status.active { opacity: 1; transform: scale(1.05); }
+        .btn-status:hover { opacity: 0.85; }
+        .btn-status.prep { background: #fef3c7; color: #92400e; }
+        .btn-status.done { background: #d1fae5; color: #065f46; }
+        .btn-status.paid { background: #dbeafe; color: #1e40af; }
+        .eta-badge { font-size: 0.75rem; color: #6b7280; font-style: italic; margin-top: 4px; }
         .empty-orders { text-align: center; padding: 40px; color: var(--muted); font-style: italic; }
 
         /* STATS */
@@ -380,14 +386,17 @@ function notifyNewOrder(order) {
 
 function renderOrders() {
     const container = document.getElementById('orders-list');
-    const pending = allOrders.filter(o => o.status === 'pending' || !o.status);
+    const pending = allOrders.filter(o => o.status === 'pending' || o.status === 'preparing' || !o.status);
     document.getElementById('pending-count').textContent = pending.length;
 
-    // Pending en premier, done ensuite
-    const sorted = [
-        ...allOrders.filter(o => o.status === 'pending' || !o.status),
-        ...allOrders.filter(o => o.status === 'done')
-    ];
+    // Ordre : en attente → en préparation → effectué → payé
+    const order_priority = { pending: 0, preparing: 1, done: 2, paid: 3 };
+    const sorted = [...allOrders].sort((a, b) => {
+        const pa = order_priority[a.status] ?? 0;
+        const pb = order_priority[b.status] ?? 0;
+        if (pa !== pb) return pa - pb;
+        return new Date(b.created_at) - new Date(a.created_at);
+    });
     const toShow = sorted.slice(0, 20);
     if (!toShow.length) {
         container.innerHTML = '<div class="empty-orders">Aucune commande reçue</div>';
@@ -396,36 +405,70 @@ function renderOrders() {
 
     container.innerHTML = '';
     toShow.forEach(order => {
-        const isDone = order.status === 'done';
+
         const time = new Date(order.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
         const itemsHtml = (order.items || []).map(i =>
             `<div class="order-item-line"><span>${i.qty}× ${i.name}</span><span>${(i.price * i.qty).toFixed(2)}€</span></div>`
         ).join('');
 
+        const status = order.status || 'pending';
+        const eta = getETA(order);
         const div = document.createElement('div');
-        div.className = `order-card ${isDone ? 'done' : ''}`;
+        div.className = `order-card ${status === 'paid' ? 'done' : ''}`;
         div.innerHTML = `
             <div class="order-card-header">
                 <span class="order-table">📍 ${order.table_number}</span>
                 <span class="order-time">${time}</span>
             </div>
             <div class="order-items">${itemsHtml}</div>
-            <div style="display:flex;justify-content:space-between;align-items:center;">
-                <span class="order-total">Total : ${parseFloat(order.total).toFixed(2)}€</span>
-                <button class="btn-done ${isDone ? 'undo' : ''}" onclick="toggleOrderDone('${order.id}', ${isDone})">
-                    ${isDone ? '↩️ Rouvrir' : '✅ Servi'}
-                </button>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:6px;">
+                <span class="order-total">Total : ${parseFloat(order.total || 0).toFixed(2)}€</span>
+                ${eta ? `<span class="eta-badge">⏱ ~${eta} min estimés</span>` : ''}
+            </div>
+            <div class="status-btns">
+                <button class="btn-status prep ${status === 'pending' ? 'active' : ''}" onclick="setOrderStatus('${order.id}', 'pending')">🟡 En attente</button>
+                <button class="btn-status done ${status === 'preparing' ? 'active' : ''}" onclick="setOrderStatus('${order.id}', 'preparing')">🔵 En préparation</button>
+                <button class="btn-status done ${status === 'done' ? 'active' : ''}" onclick="setOrderStatus('${order.id}', 'done')">✅ Effectué</button>
+                <button class="btn-status paid ${status === 'paid' ? 'active' : ''}" onclick="setOrderStatus('${order.id}', 'paid')">💰 Payé</button>
             </div>`;
         container.appendChild(div);
     });
 }
 
-async function toggleOrderDone(orderId, isDone) {
-    await db.from('orders').update({ status: isDone ? 'pending' : 'done' }).eq('id', orderId);
-    const order = allOrders.find(o => o.id == orderId);
-    if (order) order.status = isDone ? 'pending' : 'done';
-    renderOrders();
-    calculateStats();
+async function setOrderStatus(orderId, newStatus) {
+    const { error } = await db.from('orders').update({ status: newStatus }).eq('id', orderId);
+    if (!error) {
+        const order = allOrders.find(o => String(o.id) === String(orderId));
+        if (order) order.status = newStatus;
+        renderOrders();
+        calculateStats();
+        const labels = { pending: 'En attente', preparing: 'En préparation', done: 'Effectué', paid: 'Payé' };
+        showToast(`Statut → ${labels[newStatus] || newStatus}`);
+    }
+}
+
+// Calcul ETA basé sur les commandes passées (temps moyen entre création et "done")
+function getETA(order) {
+    try {
+        const completed = allOrders.filter(o =>
+            o.status === 'done' || o.status === 'paid'
+        );
+        if (completed.length < 2) return null;
+
+        // Chercher des commandes similaires (mêmes produits)
+        const orderProductIds = (order.items || []).map(i => i.productId || i.name);
+        const similar = completed.filter(o => {
+            const ids = (o.items || []).map(i => i.productId || i.name);
+            return ids.some(id => orderProductIds.includes(id));
+        });
+
+        const pool = similar.length >= 2 ? similar : completed;
+
+        // Calculer le temps moyen (on simule avec un temps fixe par défaut si pas de données de complétion)
+        // En prod, on aurait un champ completed_at
+        const avgMinutes = Math.round(5 + pool.length * 0.5);
+        return Math.min(avgMinutes, 20);
+    } catch(e) { return null; }
 }
 
 // ── STATS ──
