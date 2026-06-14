@@ -83,6 +83,8 @@
         .btn-status.prep { background: #fef3c7; color: #92400e; }
         .btn-status.done { background: #d1fae5; color: #065f46; }
         .btn-status.paid { background: #dbeafe; color: #1e40af; }
+        .btn-status.cancel { background: #fee2e2; color: #991b1b; }
+        .order-card.cancelled { border-left-color: #ef4444; opacity: 0.5; }
         .eta-badge { font-size: 0.75rem; color: #6b7280; font-style: italic; margin-top: 4px; }
         .empty-orders { text-align: center; padding: 40px; color: var(--muted); font-style: italic; }
 
@@ -390,8 +392,8 @@ function renderOrders() {
     document.getElementById('pending-count').textContent = pending.length;
 
     // Ordre : en attente → en préparation → effectué → payé
-    const order_priority = { pending: 0, preparing: 1, done: 2, paid: 3 };
-    const sorted = [...allOrders].sort((a, b) => {
+    const order_priority = { pending: 0, preparing: 1, done: 2, paid: 3, cancelled: 4 };
+    const sorted = [...allOrders].filter(o => o.status !== 'cancelled' || new Date(o.created_at) > new Date(Date.now() - 3600000)).sort((a, b) => {
         const pa = order_priority[a.status] ?? 0;
         const pb = order_priority[b.status] ?? 0;
         if (pa !== pb) return pa - pb;
@@ -414,7 +416,7 @@ function renderOrders() {
         const status = order.status || 'pending';
         const eta = getETA(order);
         const div = document.createElement('div');
-        div.className = `order-card ${status === 'paid' ? 'done' : ''}`;
+        div.className = `order-card ${status === 'paid' ? 'done' : ''} ${status === 'cancelled' ? 'cancelled' : ''}`;
         div.innerHTML = `
             <div class="order-card-header">
                 <span class="order-table">📍 ${order.table_number}</span>
@@ -430,6 +432,7 @@ function renderOrders() {
                 <button class="btn-status done ${status === 'preparing' ? 'active' : ''}" onclick="setOrderStatus('${order.id}', 'preparing')">🔵 En préparation</button>
                 <button class="btn-status done ${status === 'done' ? 'active' : ''}" onclick="setOrderStatus('${order.id}', 'done')">✅ Effectué</button>
                 <button class="btn-status paid ${status === 'paid' ? 'active' : ''}" onclick="setOrderStatus('${order.id}', 'paid')">💰 Payé</button>
+                <button class="btn-status cancel" onclick="cancelOrder('${order.id}')">🗑️ Annuler</button>
             </div>`;
         container.appendChild(div);
     });
@@ -444,6 +447,20 @@ async function setOrderStatus(orderId, newStatus) {
         calculateStats();
         const labels = { pending: 'En attente', preparing: 'En préparation', done: 'Effectué', paid: 'Payé' };
         showToast(`Statut → ${labels[newStatus] || newStatus}`);
+    }
+}
+
+async function cancelOrder(orderId) {
+    const order = allOrders.find(o => String(o.id) === String(orderId));
+    const summary = (order?.items || []).map(i => `${i.qty}× ${i.name}`).join(', ');
+    if (!confirm(`Annuler cette commande ?\n\n${summary}\n\nCette action est irréversible.`)) return;
+    const { error } = await db.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+    if (!error) {
+        const o = allOrders.find(o => String(o.id) === String(orderId));
+        if (o) o.status = 'cancelled';
+        renderOrders();
+        calculateStats();
+        showToast('Commande annulée', 'alert');
     }
 }
 
