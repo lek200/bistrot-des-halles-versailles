@@ -110,7 +110,12 @@
     <div class="order-confirm" id="order-confirm">
         <div class="confirm-icon">✅</div>
         <h2>Commande envoyée !</h2>
-        <p>Le bar a bien reçu votre commande.<br>Elle sera préparée dans les plus brefs délais.</p>
+        <p>Le bar a bien reçu votre commande.</p>
+        <div style="background:#fff8f0;border:2px solid #b2a48f;border-radius:12px;padding:16px;margin:16px 0;text-align:center;">
+            <div style="font-size:0.82rem;color:#6b7280;margin-bottom:4px;">⏱ Temps estimé</div>
+            <div id="eta-text" style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:#601424;">~10-15 minutes</div>
+            <div style="font-size:0.75rem;color:#9ca3af;margin-top:4px;">Estimation basée sur les commandes en cours</div>
+        </div>
         <button class="btn-new-order" onclick="resetOrder()">Nouvelle commande</button>
     </div>
     <div class="cart-bar" onclick="toggleCart()" id="cart-bar">
@@ -299,7 +304,15 @@ async function sendOrder() {
         created_at: new Date().toISOString()
     });
 
-    // Afficher confirmation
+    // Calculer ETA basé sur le nombre de commandes en cours
+    const { data: activeOrders } = await db.from('orders')
+        .select('id').in('status', ['pending', 'preparing']);
+    const queueSize = (activeOrders || []).length;
+    const etaMin = Math.max(5, 5 + queueSize * 2);
+    const etaMax = etaMin + 5;
+
+    // Afficher confirmation avec ETA
+    document.getElementById('eta-text').textContent = `~${etaMin}-${etaMax} minutes`;
     document.getElementById('menu-items').style.display = 'none';
     document.getElementById('cart-panel').classList.remove('open');
     document.getElementById('cart-bar').style.display = 'none';
