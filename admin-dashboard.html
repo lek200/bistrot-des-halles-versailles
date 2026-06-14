@@ -265,6 +265,7 @@ function doLogin() {
     const u = document.getElementById('login-user').value.trim();
     const p = document.getElementById('login-pass').value;
     if (CREDENTIALS[u] && CREDENTIALS[u] === p) {
+        sessionStorage.setItem('bistrot_user', u);
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('header-user').textContent = '👤 ' + u;
         initAdmin();
@@ -276,10 +277,20 @@ function doLogout() {
     if (pollInterval) clearInterval(pollInterval);
     pollInterval = null;
     allOrders = [];
+    sessionStorage.removeItem('bistrot_user');
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('login-user').value = '';
     document.getElementById('login-pass').value = '';
 }
+// Auto-login si session active
+(function() {
+    const saved = sessionStorage.getItem('bistrot_user');
+    if (saved && CREDENTIALS[saved]) {
+        document.getElementById('login-screen').style.display = 'none';
+        document.getElementById('header-user').textContent = '👤 ' + saved;
+        window.addEventListener('DOMContentLoaded', () => initAdmin());
+    }
+})();
 document.addEventListener('keydown', e => {
     if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
 });
@@ -369,10 +380,15 @@ function notifyNewOrder(order) {
 
 function renderOrders() {
     const container = document.getElementById('orders-list');
-    const pending = allOrders.filter(o => o.status === 'pending');
+    const pending = allOrders.filter(o => o.status === 'pending' || !o.status);
     document.getElementById('pending-count').textContent = pending.length;
 
-    const toShow = allOrders.slice(0, 20);
+    // Pending en premier, done ensuite
+    const sorted = [
+        ...allOrders.filter(o => o.status === 'pending' || !o.status),
+        ...allOrders.filter(o => o.status === 'done')
+    ];
+    const toShow = sorted.slice(0, 20);
     if (!toShow.length) {
         container.innerHTML = '<div class="empty-orders">Aucune commande reçue</div>';
         return;
