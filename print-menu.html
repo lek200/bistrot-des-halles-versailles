@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Le Bistrot des Halles — Carte</title>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -36,6 +37,7 @@ body {
 .btn { background: white; color: #601424; border: none; padding: 10px 20px; border-radius: 6px; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
 .btn-print { background: #10b981; color: white; }
 .btn-email { background: #3b82f6; color: white; }
+.btn-dl { background: #f59e0b; color: white; }
 
 .header { text-align: center; margin-bottom: 36px; padding-bottom: 18px; border-bottom: 3px solid #601424; }
 .header h1 { font-family: Georgia, serif; color: #601424; font-size: 2.4rem; letter-spacing: 3px; }
@@ -64,7 +66,8 @@ body {
 <div class="toolbar">
     <h2>🖨️ Le Bistrot des Halles — Carte imprimable</h2>
     <div class="toolbar-btns">
-        <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+        <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer</button>
+        <button class="btn btn-dl" onclick="downloadPDF()">⬇️ Télécharger PDF</button>
         <button class="btn btn-email" onclick="sendByEmail()">📧 Email</button>
         <button class="btn" onclick="window.close()">✕ Fermer</button>
     </div>
@@ -155,6 +158,95 @@ function applySelection() {
     const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
     const selected = appState.menus.filter(m => checked.includes(m.id));
     renderMenus(selected.length ? selected : appState.menus);
+}
+
+async function downloadPDF() {
+    if (!appState) return alert('La carte est encore en chargement.');
+
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({ unit: 'mm', format: 'a4' });
+
+    const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
+    const selectedMenus = appState.menus.filter(m => checked.includes(m.id));
+    const { categories, products } = appState;
+
+    const pageW = 210;
+    const margin = 20;
+    const colW = pageW - margin * 2;
+    let y = 20;
+
+    // En-tête
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(22);
+    doc.setTextColor(96, 20, 36);
+    doc.text('Le Bistrot des Halles', pageW / 2, y, { align: 'center' });
+    y += 7;
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(10);
+    doc.setTextColor(110, 93, 96);
+    doc.text('Versailles — Notre sélection du moment', pageW / 2, y, { align: 'center' });
+    y += 5;
+    doc.setDrawColor(96, 20, 36);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y, pageW - margin, y);
+    y += 10;
+
+    selectedMenus.forEach(m => {
+        // Titre menu
+        if (y > 260) { doc.addPage(); y = 20; }
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(14);
+        doc.setTextColor(96, 20, 36);
+        doc.text(m.name.toUpperCase(), margin, y);
+        y += 2;
+        doc.setLineWidth(0.3);
+        doc.setDrawColor(178, 164, 143);
+        doc.line(margin, y, pageW - margin, y);
+        y += 7;
+
+        categories.filter(c => c.menuId === m.id).forEach(cat => {
+            const prods = products.filter(p => p.catId === cat.id && !p.isHidden);
+            if (!prods.length) return;
+
+            if (y > 260) { doc.addPage(); y = 20; }
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(11);
+            doc.setTextColor(45, 35, 37);
+            doc.text(cat.name, margin, y);
+            y += 6;
+
+            prods.forEach(p => {
+                if (y > 270) { doc.addPage(); y = 20; }
+                const price = parseFloat(p.price).toFixed(2) + ' €';
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(45, 35, 37);
+                doc.text(p.name, margin, y);
+                doc.setTextColor(96, 20, 36);
+                doc.text(price, pageW - margin, y, { align: 'right' });
+
+                if (p.desc) {
+                    y += 4;
+                    doc.setFont('helvetica', 'italic');
+                    doc.setFontSize(8.5);
+                    doc.setTextColor(110, 93, 96);
+                    const lines = doc.splitTextToSize(p.desc, colW - 20);
+                    doc.text(lines, margin + 2, y);
+                    y += lines.length * 4;
+                } else {
+                    y += 6;
+                }
+
+                doc.setDrawColor(212, 201, 176);
+                doc.setLineWidth(0.1);
+                doc.line(margin, y - 1, pageW - margin, y - 1);
+            });
+            y += 4;
+        });
+        y += 6;
+    });
+
+    doc.save('bistrot-des-halles-carte.pdf');
 }
 
 loadAndRender();
