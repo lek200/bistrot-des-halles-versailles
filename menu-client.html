@@ -110,6 +110,35 @@
         .order-confirm h2 { font-family: 'Playfair Display', serif; color: var(--burgundy); font-size: 1.6rem; margin-bottom: 8px; }
         .order-confirm p { color: #6b7280; font-size: 0.9rem; }
         .btn-new-order { margin-top: 24px; background: var(--burgundy); color: white; border: none; padding: 14px 28px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
+
+        /* ── MÉDIAS PRODUIT (digital only) ── */
+        .product-media-wrap { position: relative; flex-shrink: 0; }
+        .product-img { width: 76px; height: 76px; border-radius: 10px; object-fit: cover; display: block; }
+        .product-video { width: 76px; height: 76px; border-radius: 10px; object-fit: cover; display: block; }
+        .product-item { display: flex; align-items: center; gap: 10px; margin-bottom: 14px; padding-bottom: 12px; border-bottom: 1px dashed rgba(0,0,0,0.08); }
+        .product-item-info { flex: 1; min-width: 0; }
+        .product-item-actions { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+
+        /* ── PRINT : version papier propre ── */
+        @media print {
+            .no-print, .btn-add, .cart-bar, .cart-panel,
+            .menu-header, .menu-switcher, .cat-nav,
+            .product-img, .product-video, .product-media-wrap,
+            .popup-overlay, .cart-fab, .table-select,
+            .order-confirm { display: none !important; }
+            body { background: white !important; }
+            .menu-screen { display: block !important; }
+            .sas-screen { display: none !important; }
+            .menu-content { padding: 24px 30px; }
+            .category-block { margin-bottom: 28px; page-break-inside: avoid; }
+            .category-name { font-size: 1.4rem; color: #601424; border-bottom: 1.5px solid #b2a48f; padding-bottom: 5px; margin-bottom: 14px; }
+            .category-name::after { display: none !important; }
+            .product-item { display: flex; justify-content: space-between; align-items: flex-start; padding: 6px 0; border-bottom: 1px dashed #d1c9b8; gap: 0; }
+            .product-item-info { flex: 1; }
+            .product-item-actions { display: none !important; }
+            .product-meta { font-size: 1rem; font-weight: 700; color: #601424; display: flex; justify-content: space-between; }
+            .product-desc { font-size: 0.82rem; color: #55484a; font-style: italic; margin-top: 2px; }
+        }
     </style>
 </head>
 <body>
@@ -315,13 +344,21 @@ function renderMenu(menuId) {
         block.id = `cat-${cat.id}`;
         block.innerHTML = `<div class="category-name">${cat.name}</div>`;
         prods.forEach(p => {
-            block.innerHTML += `
+            const media = p.mediaUrl ? (
+                            p.mediaType === 'video'
+                            ? `<div class="product-media-wrap no-print"><video class="product-video" src="${p.mediaUrl}" autoplay loop muted playsinline></video></div>`
+                            : `<div class="product-media-wrap no-print"><img class="product-img" src="${p.mediaUrl}" alt="${p.name}" loading="lazy"></div>`
+                        ) : '';
+                        block.innerHTML += `
                 <div class="product-item">
-                    <div class="product-info">
+                    ${media}
+                    <div class="product-item-info">
                         <div class="product-meta"><span>${p.name}</span><span>${parseFloat(p.price).toFixed(2)}€</span></div>
                         <div class="product-desc">${p.desc}</div>
                     </div>
-                    <button class="btn-add" data-product-id="${p.id}" onclick="addToCart('${p.id}')">+ Ajouter${cart[p.id] ? `<span class="product-badge">${cart[p.id]}</span>` : ''}</button>
+                    <div class="product-item-actions no-print">
+                        <button class="btn-add" data-product-id="${p.id}" onclick="addToCart('${p.id}')">+ Ajouter${cart[p.id] ? `<span class="product-badge">${cart[p.id]}</span>` : ''}</button>
+                    </div>
                 </div>`;
         });
         container.appendChild(block);
