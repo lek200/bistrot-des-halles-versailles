@@ -217,6 +217,10 @@
                     <input type="number" id="add-prod-price" class="form-control" placeholder="Prix €" style="flex:1;" step="0.10" min="0">
                 </div>
                 <div class="form-group"><input type="text" id="add-prod-desc" class="form-control" placeholder="Description, allergènes..."></div>
+                <div class="form-group">
+                    <label>📸 Photo ou vidéo (URL) <span style="font-weight:400;color:var(--muted);">— visible sur le menu digital uniquement</span></label>
+                    <input type="text" id="add-prod-media" class="form-control" placeholder="https://... (image jpg/png ou vidéo mp4)">
+                </div>
                 <button class="btn-submit" style="background:var(--success);" onclick="adminCreateProduct()">Publier</button>
             </div>
         </div>
@@ -578,6 +582,7 @@ function requestNotifPermission() {
 function setSyncStatus(live) {
     const dot = document.getElementById('sync-dot');
     const label = document.getElementById('sync-indicator');
+    if (!dot || !label) return;
     dot.className = 'sync-dot' + (live ? ' live' : '');
     label.innerHTML = `<span class="sync-dot ${live ? 'live' : ''}"></span>${live ? 'Temps réel' : 'Reconnexion...'}`;
 }
@@ -641,9 +646,11 @@ async function adminCreateProduct() {
     const name = document.getElementById('add-prod-name').value.trim();
     const price = parseFloat(document.getElementById('add-prod-price').value);
     const desc = document.getElementById('add-prod-desc').value.trim();
+    const mediaUrl = document.getElementById('add-prod-media').value.trim();
+    const mediaType = mediaUrl.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'image';
     if (!name || isNaN(price)) return alert('Nom et prix requis.');
-    appState.products.push({ id: 'p_' + Date.now(), catId, name, price, desc, isHidden: false });
-    ['add-prod-name','add-prod-price','add-prod-desc'].forEach(id => document.getElementById(id).value = '');
+    appState.products.push({ id: 'p_' + Date.now(), catId, name, price, desc, isHidden: false, mediaUrl: mediaUrl || null, mediaType: mediaUrl ? mediaType : null });
+    ['add-prod-name','add-prod-price','add-prod-desc','add-prod-media'].forEach(id => document.getElementById(id).value = '');
     await saveState(); refreshAll(); showToast(`"${name}" ajouté`);
 }
 
@@ -658,6 +665,7 @@ function renderInventoryList() {
         const row = document.createElement('div');
         row.className = `item-row ${p.isHidden ? 'hidden-item' : ''}`;
         row.innerHTML = `
+            ${p.mediaUrl ? `<img src="${p.mediaUrl}" style="width:36px;height:36px;border-radius:6px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">` : ''}
             <div class="item-info">
                 <div class="item-name">${p.name} — <span style="color:var(--burgundy);font-weight:700;">${parseFloat(p.price).toFixed(2)}€</span></div>
                 <div class="item-sub">${menu?.name || '–'} › ${cat?.name || '–'}</div>
@@ -674,6 +682,7 @@ function renderInventoryList() {
             <input type="text" id="edit-name-${p.id}" value="${p.name}" placeholder="Nom" style="flex:2;min-width:90px;">
             <input type="number" id="edit-price-${p.id}" value="${p.price}" step="0.10" min="0" style="width:65px;">
             <input type="text" id="edit-desc-${p.id}" value="${p.desc}" placeholder="Description" style="flex:3;min-width:100px;">
+            <input type="text" id="edit-media-${p.id}" value="${p.mediaUrl || ''}" placeholder="URL photo/vidéo" style="flex:3;min-width:100px;">
             <button class="btn-save-inline" onclick="saveInlineEdit('${p.id}')">Sauver</button>
             <button class="btn-cancel-inline" onclick="closeInlineEdit('${p.id}')">✕</button>`;
         wrapper.appendChild(row); wrapper.appendChild(editForm);
@@ -693,6 +702,9 @@ async function saveInlineEdit(id) {
     p.name = document.getElementById(`edit-name-${id}`).value.trim();
     p.price = parseFloat(document.getElementById(`edit-price-${id}`).value);
     p.desc = document.getElementById(`edit-desc-${id}`).value.trim();
+    const mediaUrl = document.getElementById(`edit-media-${id}`)?.value.trim();
+    p.mediaUrl = mediaUrl || null;
+    p.mediaType = mediaUrl ? (mediaUrl.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'image') : null;
     await saveState(); refreshAll(); showToast(`"${p.name}" mis à jour`);
 }
 
