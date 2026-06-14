@@ -53,7 +53,7 @@ body {
 .loading { text-align: center; padding: 60px; color: #9ca3af; font-style: italic; }
 
 @media print {
-    .toolbar { display: none !important; }
+    .toolbar, #selector { display: none !important; }
     body { padding: 20px; }
 }
 </style>
@@ -68,11 +68,9 @@ body {
     </div>
 </div>
 
-<div id="selector" style="background:white;border-radius:10px;padding:16px;margin-bottom:24px;border:1px solid #d4c9b0;display:none;">
-    <div style="font-family:Georgia,serif;color:#601424;font-weight:700;font-size:1rem;margin-bottom:12px;">Sélectionner les menus à imprimer :</div>
-    <div id="menu-checkboxes" style="display:flex;flex-wrap:wrap;gap:10px;margin-bottom:14px;"></div>
-    <button onclick="applySelection()" style="background:#601424;color:white;border:none;padding:10px 22px;border-radius:6px;font-weight:700;font-size:0.9rem;cursor:pointer;">✅ Appliquer la sélection</button>
-    <button onclick="resetSelection()" style="background:#e5e7eb;color:#374151;border:none;padding:10px 16px;border-radius:6px;font-weight:700;font-size:0.9rem;cursor:pointer;margin-left:8px;">Tout afficher</button>
+<div id="selector" style="background:white;border-radius:10px;padding:14px 16px;margin-bottom:24px;border:1px solid #d4c9b0;display:none;">
+    <div style="font-family:Georgia,serif;color:#601424;font-weight:700;font-size:0.95rem;margin-bottom:10px;">Sélectionner les menus à imprimer :</div>
+    <div id="menu-checkboxes" style="display:flex;flex-wrap:wrap;gap:10px;"></div>
 </div>
 
 <div class="header">
@@ -104,7 +102,13 @@ async function loadAndRender() {
         appState.menus.forEach(m => {
             const label = document.createElement('label');
             label.className = 'menu-checkbox-label';
-            label.innerHTML = '<input type="checkbox" value="' + m.id + '" checked> ' + m.name;
+            const cb = document.createElement('input');
+            cb.type = 'checkbox';
+            cb.value = m.id;
+            cb.checked = true;
+            cb.addEventListener('change', applySelection);
+            label.appendChild(cb);
+            label.appendChild(document.createTextNode(' ' + m.name));
             checkboxContainer.appendChild(label);
         });
         document.getElementById('selector').style.display = 'block';
@@ -148,14 +152,7 @@ function applySelection() {
     if (!appState) return;
     const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
     const selected = appState.menus.filter(m => checked.includes(m.id));
-    if (!selected.length) return alert('Cochez au moins un menu.');
-    renderMenus(selected);
-}
-
-function resetSelection() {
-    if (!appState) return;
-    document.querySelectorAll('#menu-checkboxes input').forEach(i => i.checked = true);
-    renderMenus(appState.menus);
+    renderMenus(selected.length ? selected : appState.menus);
 }
 
 loadAndRender();
