@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Le Bistrot des Halles — Carte</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    font-family: Georgia, serif;
+    background: #ede2cf;
+    color: #2d2325;
+    padding: 30px;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+}
+.toolbar {
+    background: #601424; color: white;
+    padding: 14px 20px; border-radius: 10px;
+    margin-bottom: 30px;
+    display: flex; align-items: center; justify-content: space-between;
+    flex-wrap: wrap; gap: 10px;
+}
+.toolbar h2 { font-size: 1rem; font-family: Georgia, serif; }
+.toolbar-btns { display: flex; gap: 8px; }
+.btn { background: white; color: #601424; border: none; padding: 10px 20px; border-radius: 6px; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
+.btn-print { background: #10b981; color: white; }
+
+.header { text-align: center; margin-bottom: 36px; padding-bottom: 18px; border-bottom: 3px solid #601424; }
+.header h1 { font-family: Georgia, serif; color: #601424; font-size: 2.4rem; letter-spacing: 3px; }
+.header p { font-size: 0.88rem; color: #6e5d60; font-style: italic; margin-top: 6px; }
+
+.menu-section { margin-bottom: 40px; page-break-inside: avoid; }
+.menu-title { font-family: Georgia, serif; color: #601424; font-size: 1.7rem; font-weight: 700; border-bottom: 2px solid #b2a48f; padding-bottom: 6px; margin-bottom: 18px; text-transform: uppercase; letter-spacing: 1px; }
+.cat-block { margin-bottom: 18px; }
+.cat-title { font-family: Georgia, serif; color: #601424; font-size: 1.05rem; font-weight: 700; border-bottom: 1px solid #b2a48f; padding-bottom: 4px; margin-bottom: 10px; }
+.prod-row { display: flex; justify-content: space-between; align-items: baseline; padding: 6px 0; border-bottom: 1px dashed #d4c9b0; gap: 12px; }
+.prod-left { flex: 1; }
+.prod-name { font-size: 0.92rem; font-weight: 600; color: #2d2325; }
+.prod-desc { font-size: 0.76rem; color: #6e5d60; font-style: italic; margin-top: 2px; line-height: 1.3; }
+.prod-price { font-weight: 700; color: #601424; white-space: nowrap; font-size: 0.92rem; }
+
+.loading { text-align: center; padding: 60px; color: #9ca3af; font-style: italic; }
+
+@media print {
+    .toolbar { display: none !important; }
+    body { padding: 20px; }
+}
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+    <h2>🖨️ Le Bistrot des Halles — Carte imprimable</h2>
+    <div class="toolbar-btns">
+        <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer</button>
+        <button class="btn" onclick="window.close()">✕ Fermer</button>
+    </div>
+</div>
+
+<div class="header">
+    <h1>Le Bistrot des Halles</h1>
+    <p>Versailles — Notre sélection du moment</p>
+</div>
+
+<div id="menu-content"><div class="loading">Chargement de la carte...</div></div>
+
+<script>
+const SUPABASE_URL = 'https://mvxqpysdbngyazzzdbkc.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHFweXNkYm5neWF6enpkYmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTgyNzgsImV4cCI6MjA5NjkzNDI3OH0.Y0v4pHdGHF6oGMP4AbTyMjIAZLJk-S7iWL0p_SaRJAs';
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+async function loadAndRender() {
+    try {
+        const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
+        if (error || !data || !data.value) {
+            document.getElementById('menu-content').innerHTML = '<div class="loading">Aucune carte trouvée.</div>';
+            return;
+        }
+
+        const state = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        const { menus, categories, products } = state;
+
+        // Filtre par URL param ?menu=id1,id2
+        const params = new URLSearchParams(window.location.search);
+        const filter = params.get('menus');
+        const selectedMenus = filter
+            ? menus.filter(m => filter.split(',').includes(m.id))
+            : menus;
+
+        let html = '';
+        selectedMenus.forEach(m => {
+            html += '<div class="menu-section">';
+            html += '<div class="menu-title">' + m.name + '</div>';
+            categories.filter(c => c.menuId === m.id).forEach(cat => {
+                const prods = products.filter(p => p.catId === cat.id && !p.isHidden);
+                if (!prods.length) return;
+                html += '<div class="cat-block">';
+                html += '<div class="cat-title">' + cat.name + '</div>';
+                prods.forEach(p => {
+                    html += '<div class="prod-row">';
+                    html += '<div class="prod-left"><div class="prod-name">' + p.name + '</div>';
+                    if (p.desc) html += '<div class="prod-desc">' + p.desc + '</div>';
+                    html += '</div>';
+                    html += '<div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' €</div>';
+                    html += '</div>';
+                });
+                html += '</div>';
+            });
+            html += '</div>';
+        });
+
+        document.getElementById('menu-content').innerHTML = html || '<div class="loading">Aucun article visible.</div>';
+    } catch(e) {
+        console.error(e);
+        document.getElementById('menu-content').innerHTML = '<div class="loading">Erreur de chargement.</div>';
+    }
+}
+
+loadAndRender();
+</script>
+</body>
+</html>
