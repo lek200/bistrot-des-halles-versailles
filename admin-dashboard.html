@@ -159,6 +159,35 @@
 
         /* NOTIF PERMISSION */
         .notif-banner { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px; margin-bottom: 14px; font-size: 0.82rem; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+
+        /* PRINT DASHBOARD */
+        #pdf-print-zone { display: none; }
+
+        @media print {
+            body.printing-menu > *:not(#pdf-print-zone) { display: none !important; }
+            #pdf-print-zone {
+                display: block !important;
+                position: fixed;
+                top: 0; left: 0;
+                width: 100%;
+                background: #ede2cf !important;
+                padding: 30px;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            .pdf-header { text-align: center; margin-bottom: 30px; padding-bottom: 16px; border-bottom: 3px solid #601424; }
+            .pdf-resto { font-family: Georgia, serif; color: #601424; font-size: 2.2rem; font-weight: 700; letter-spacing: 3px; }
+            .pdf-sub { font-size: 0.85rem; color: #6e5d60; font-style: italic; margin-top: 4px; }
+            .menu-section { margin-bottom: 36px; }
+            .menu-title { font-family: Georgia, serif; color: #601424; font-size: 1.6rem; font-weight: 700; border-bottom: 2px solid #b2a48f; padding-bottom: 5px; margin-bottom: 16px; text-transform: uppercase; letter-spacing: 1px; }
+            .cat-block { margin-bottom: 16px; }
+            .cat-title { font-family: Georgia, serif; color: #601424; font-size: 1rem; font-weight: 700; border-bottom: 1px solid #b2a48f; padding-bottom: 3px; margin-bottom: 8px; }
+            .prod-row { display: flex; justify-content: space-between; align-items: baseline; padding: 5px 0; border-bottom: 1px dashed #d4c9b0; }
+            .prod-left { flex: 1; }
+            .prod-name { font-size: 0.9rem; font-weight: 600; color: #2d2325; }
+            .prod-desc { font-size: 0.75rem; color: #6e5d60; font-style: italic; margin-top: 1px; }
+            .prod-price { font-weight: 700; color: #601424; white-space: nowrap; margin-left: 12px; font-size: 0.9rem; }
+        }
         .btn-enable-notif { background: var(--warning); color: white; border: none; padding: 7px 12px; border-radius: 6px; font-size: 0.8rem; font-weight: 700; cursor: pointer; white-space: nowrap; }
     </style>
 </head>
@@ -197,7 +226,7 @@
             <button class="tab-btn" onclick="switchTab(event,'tab-dashboard')">📈 Stats</button>
             <button class="tab-btn" onclick="switchTab(event,'tab-carte')">⚙️ Carte</button>
             <button class="tab-btn" onclick="switchTab(event,'tab-inventory')">📦 Stocks</button>
-            <button class="tab-btn" onclick="switchTab(event,'tab-qr')">📱 QR</button>
+            <button class="tab-btn" onclick="switchTab(event,'tab-qr')">📱 QR & 🖨️</button>
         </nav>
 
         <!-- COMMANDES LIVE -->
@@ -300,6 +329,22 @@
                     <button class="btn-submit" style="background:var(--success);margin-top:6px;" onclick="downloadQR()">⬇️ Télécharger PNG</button>
                 </div>
             </div>
+
+            <!-- IMPRESSION PDF -->
+            <div class="card">
+                <h2>🖨️ Impression de la carte</h2>
+                <p style="font-size:0.78rem;color:var(--muted);margin-bottom:14px;">Génère une version papier propre — sans boutons, sans photos, sans éléments digitaux.</p>
+
+                <div style="margin-bottom:14px;">
+                    <label style="font-weight:700;display:block;margin-bottom:8px;font-size:0.82rem;">Sélection :</label>
+                    <label style="margin-right:16px;font-size:0.85rem;"><input type="radio" name="pdf-mode" value="all" checked onchange="togglePdfSelectors(false)"> Toute la carte</label>
+                    <label style="font-size:0.85rem;"><input type="radio" name="pdf-mode" value="custom" onchange="togglePdfSelectors(true)"> Sélection personnalisée</label>
+                </div>
+
+                <div id="pdf-custom-selectors" style="display:none;border:1px solid var(--border);padding:12px;border-radius:8px;max-height:180px;overflow-y:auto;margin-bottom:14px;"></div>
+
+                <a href="https://lek200.github.io/bistrot-des-halles-versailles/print-menu.html" target="_blank" style="display:block;text-align:center;background:var(--burgundy);color:white;padding:12px;border-radius:6px;font-weight:700;font-size:0.95rem;text-decoration:none;">🖨️ Ouvrir la carte imprimable</a>
+            </div>
         </div>
     </div>
 
@@ -370,20 +415,48 @@ async function initAdmin() {
 }
 
 // ── SUPABASE STATE ──
+const DEFAULT_DATA = {
+    menus: [
+        { id: "m_vins", name: "La Carte des Vins" },
+        { id: "m_cocktails", name: "Les Cocktails & Boissons" }
+    ],
+    categories: [
+        { id: "c_rouges", menuId: "m_vins", name: "Vins Rouges" },
+        { id: "c_blancs", menuId: "m_vins", name: "Vins Blancs" },
+        { id: "c_creations", menuId: "m_cocktails", name: "Créations du Chef" },
+        { id: "c_softs", menuId: "m_cocktails", name: "Softs Frais" }
+    ],
+    products: [
+        { id: "p1", catId: "c_rouges", name: "Saint-Émilion Grand Cru", price: 7.50, desc: "Notes boisées, finale veloutée.", isHidden: false },
+        { id: "p2", catId: "c_blancs", name: "Chablis Artisanal", price: 6.00, desc: "Minéral, frais, idéal fruits de mer.", isHidden: false },
+        { id: "p3", catId: "c_creations", name: "Bistrot Mule Signature", price: 9.50, desc: "Vodka infusée au basilic, Ginger Beer, citron vert.", isHidden: false },
+        { id: "p4", catId: "c_softs", name: "Limonade Maison Menthe", price: 4.00, desc: "Citrons pressés minute, sirop de canne bio.", isHidden: false },
+        { id: "p5", catId: "c_creations", name: "Spritz des Halles", price: 8.50, desc: "Apérol revisité, liqueur de rhubarbe, Prosecco.", isHidden: false }
+    ]
+};
+
 async function loadState() {
     try {
         const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
         if (!error && data && data.value) {
             const val = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-            if (val.menus) appState.menus = val.menus;
-            if (val.categories) appState.categories = val.categories;
-            if (val.products) appState.products = val.products;
+            // Charger depuis Supabase seulement si les données sont valides et non vides
+            if (val.menus && val.menus.length > 0) appState.menus = val.menus;
+            if (val.categories && val.categories.length > 0) appState.categories = val.categories;
+            if (val.products && val.products.length > 0) appState.products = val.products;
         } else {
+            // Rien en base → initialiser avec données par défaut et sauvegarder
+            appState.menus = DEFAULT_DATA.menus;
+            appState.categories = DEFAULT_DATA.categories;
+            appState.products = DEFAULT_DATA.products;
             await saveState();
         }
     } catch(e) {
         console.warn('loadState error:', e);
-        // Continuer avec les données par défaut sans crasher
+        // Fallback données par défaut
+        if (!appState.menus.length) appState.menus = DEFAULT_DATA.menus;
+        if (!appState.categories.length) appState.categories = DEFAULT_DATA.categories;
+        if (!appState.products.length) appState.products = DEFAULT_DATA.products;
     }
 }
 
@@ -995,6 +1068,79 @@ async function reorderProducts(fromId, toId, catId) {
     await saveState(); refreshAll(); showToast('Ordre mis à jour');
 }
 
+// ── PDF & IMPRESSION ──
+function togglePdfSelectors(show) {
+    const el = document.getElementById('pdf-custom-selectors');
+    if (el) el.style.display = show ? 'block' : 'none';
+    if (show) renderPdfSelectors();
+}
+
+function renderPdfSelectors() {
+    const c = document.getElementById('pdf-custom-selectors');
+    if (!c) return;
+    c.innerHTML = '';
+    appState.menus.forEach(m => {
+        const div = document.createElement('div');
+        div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:7px 0;border-bottom:1px solid #f3f4f6;';
+        div.innerHTML = `<input type="checkbox" id="print-m-${m.id}" value="${m.id}" class="pdf-menu-checkbox" checked><label for="print-m-${m.id}" style="font-size:0.85rem;font-weight:600;">${m.name}</label>`;
+        c.appendChild(div);
+    });
+}
+
+function generatePDF() {
+    const mode = document.querySelector('input[name="pdf-mode"]:checked')?.value || 'all';
+    let selectedMenus = [];
+    if (mode === 'all') {
+        selectedMenus = appState.menus;
+    } else {
+        document.querySelectorAll('.pdf-menu-checkbox:checked').forEach(cb => {
+            const found = appState.menus.find(m => m.id === cb.value);
+            if (found) selectedMenus.push(found);
+        });
+    }
+    if (!selectedMenus.length) return alert('Sélectionnez au moins un menu.');
+
+    // Construire le contenu
+    let body = '';
+    selectedMenus.forEach(m => {
+        body += '<div class="menu-section">';
+        body += '<div class="menu-title">' + m.name + '</div>';
+        appState.categories.filter(c => c.menuId === m.id).forEach(cat => {
+            const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
+            if (!prods.length) return;
+            body += '<div class="cat-block">';
+            body += '<div class="cat-title">' + cat.name + '</div>';
+            prods.forEach(p => {
+                body += '<div class="prod-row">';
+                body += '<div class="prod-left"><div class="prod-name">' + p.name + '</div>';
+                if (p.desc) body += '<div class="prod-desc">' + p.desc + '</div>';
+                body += '</div>';
+                body += '<div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' €</div>';
+                body += '</div>';
+            });
+            body += '</div>';
+        });
+        body += '</div>';
+    });
+
+    // Injecter dans la zone print dédiée
+    let zone = document.getElementById('pdf-print-zone');
+    if (!zone) {
+        zone = document.createElement('div');
+        zone.id = 'pdf-print-zone';
+        document.body.appendChild(zone);
+    }
+
+    zone.innerHTML = '<div class="pdf-header">'
+        + '<div class="pdf-resto">Le Bistrot des Halles</div>'
+        + '<div class="pdf-sub">Versailles</div>'
+        + '</div>' + body;
+
+    // Ajouter class au body pour déclencher le CSS print
+    document.body.classList.add('printing-menu');
+    window.print();
+    document.body.classList.remove('printing-menu');
+}
 function generateQRCode() {
     const url = document.getElementById('qr-url-input').value.trim();
     if (!url) return;
