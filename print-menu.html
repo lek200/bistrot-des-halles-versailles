@@ -35,6 +35,7 @@ body {
 .toolbar-btns { display: flex; gap: 8px; }
 .btn { background: white; color: #601424; border: none; padding: 10px 20px; border-radius: 6px; font-size: 0.88rem; font-weight: 700; cursor: pointer; }
 .btn-print { background: #10b981; color: white; }
+.btn-email { background: #3b82f6; color: white; }
 
 .header { text-align: center; margin-bottom: 36px; padding-bottom: 18px; border-bottom: 3px solid #601424; }
 .header h1 { font-family: Georgia, serif; color: #601424; font-size: 2.4rem; letter-spacing: 3px; }
@@ -63,7 +64,8 @@ body {
 <div class="toolbar">
     <h2>🖨️ Le Bistrot des Halles — Carte imprimable</h2>
     <div class="toolbar-btns">
-        <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer</button>
+        <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+        <button class="btn btn-email" onclick="sendByEmail()">📧 Email</button>
         <button class="btn" onclick="window.close()">✕ Fermer</button>
     </div>
 </div>
@@ -156,6 +158,40 @@ function applySelection() {
 }
 
 loadAndRender();
+
+function sendByEmail() {
+    if (!appState) return alert('La carte est encore en chargement.');
+
+    const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
+    const selectedMenus = appState.menus.filter(m => checked.includes(m.id));
+    const { categories, products } = appState;
+
+    let body = 'Le Bistrot des Halles — Versailles\n';
+    body += '================================\n\n';
+
+    selectedMenus.forEach(m => {
+        body += m.name.toUpperCase() + '\n';
+        body += '--------------------------------\n';
+        categories.filter(c => c.menuId === m.id).forEach(cat => {
+            const prods = products.filter(p => p.catId === cat.id && !p.isHidden);
+            if (!prods.length) return;
+            body += '\n' + cat.name + '\n';
+            prods.forEach(p => {
+                const price = parseFloat(p.price).toFixed(2) + ' €';
+                const dots = '.'.repeat(Math.max(2, 45 - p.name.length - price.length));
+                body += p.name + dots + price + '\n';
+                if (p.desc) body += '  ' + p.desc + '\n';
+            });
+        });
+        body += '\n';
+    });
+
+    body += '\nCarte générée depuis le système de gestion du Bistrot des Halles.';
+
+    const subject = encodeURIComponent('Carte du Bistrot des Halles — Versailles');
+    const encodedBody = encodeURIComponent(body);
+    window.location.href = 'mailto:?subject=' + subject + '&body=' + encodedBody;
+}
 </script>
 </body>
 </html>
