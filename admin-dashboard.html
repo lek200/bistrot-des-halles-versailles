@@ -258,7 +258,7 @@ let appState = {
     menus: [], categories: [], products: [], currentPeriod: 'today'
 };
 let allOrders = [];
-let realtimeChannel = null;
+
 
 // ── LOGIN ──
 function doLogin() {
@@ -273,8 +273,12 @@ function doLogin() {
     }
 }
 function doLogout() {
-    if (realtimeChannel) db.removeChannel(realtimeChannel);
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = null;
+    allOrders = [];
     document.getElementById('login-screen').style.display = 'flex';
+    document.getElementById('login-user').value = '';
+    document.getElementById('login-pass').value = '';
 }
 document.addEventListener('keydown', e => {
     if (e.key === 'Enter' && document.getElementById('login-screen').style.display !== 'none') doLogin();
@@ -292,38 +296,35 @@ async function initAdmin() {
 
 // ── SUPABASE STATE ──
 async function loadState() {
-    const { data } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
-    if (data?.value) {
-        appState = { ...appState, ...data.value };
-    } else {
-        // Init par défaut
-        appState.menus = [
-            { id: "m_vins", name: "La Carte des Vins" },
-            { id: "m_cocktails", name: "Les Cocktails & Boissons" }
-        ];
-        appState.categories = [
-            { id: "c_rouges", menuId: "m_vins", name: "Vins Rouges" },
-            { id: "c_blancs", menuId: "m_vins", name: "Vins Blancs" },
-            { id: "c_creations", menuId: "m_cocktails", name: "Créations du Chef" },
-            { id: "c_softs", menuId: "m_cocktails", name: "Softs Frais" }
-        ];
-        appState.products = [
-            { id: "p1", catId: "c_rouges", name: "Saint-Émilion Grand Cru", price: 7.50, desc: "Notes boisées, finale veloutée.", isHidden: false },
-            { id: "p2", catId: "c_blancs", name: "Chablis Artisanal", price: 6.00, desc: "Minéral, frais, idéal fruits de mer.", isHidden: false },
-            { id: "p3", catId: "c_creations", name: "Bistrot Mule Signature", price: 9.50, desc: "Vodka infusée au basilic, Ginger Beer, citron vert.", isHidden: false },
-            { id: "p4", catId: "c_softs", name: "Limonade Maison Menthe", price: 4.00, desc: "Citrons pressés minute, sirop de canne bio.", isHidden: false }
-        ];
-        await saveState();
+    try {
+        const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
+        if (!error && data && data.value) {
+            const val = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+            if (val.menus) appState.menus = val.menus;
+            if (val.categories) appState.categories = val.categories;
+            if (val.products) appState.products = val.products;
+        } else {
+            await saveState();
+        }
+    } catch(e) {
+        console.warn('loadState error:', e);
+        // Continuer avec les données par défaut sans crasher
     }
 }
 
 async function saveState() {
-    const payload = { menus: appState.menus, categories: appState.categories, products: appState.products };
-    await db.from('state').upsert({ key: 'app_state', value: payload });
-    document.getElementById('last-sync').textContent = 'Sync : ' + new Date().toLocaleTimeString('fr-FR');
+    try {
+        const payload = { menus: appState.menus, categories: appState.categories, products: appState.products };
+        await db.from('state').upsert({ key: 'app_state', value: JSON.stringify(payload) }, { onConflict: 'key' });
+        document.getElementById('last-sync').textContent = 'Sync : ' + new Date().toLocaleTimeString('fr-FR');
+    } catch(e) {
+        console.warn('saveState error:', e);
+    }
 }
 
 // ── ORDERS ──
+let pollInterval = null;
+
 async function loadOrders() {
     const { data } = await db.from('orders').select('*').order('created_at', { ascending: false });
     allOrders = data || [];
@@ -332,15 +333,26 @@ async function loadOrders() {
 }
 
 function subscribeToOrders() {
-    realtimeChannel = db.channel('orders-channel')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, payload => {
-            const order = payload.new;
-            allOrders.unshift(order);
-            renderOrders();
-            calculateStats();
-            notifyNewOrder(order);
-        })
-        .subscribe(status => setSyncStatus(status === 'SUBSCRIBED'));
+    setSyncStatus(true);
+    pollInterval = setInterval(async () => {
+        try {
+            const { data, error } = await db.from('orders').select('*').order('created_at', { ascending: false });
+            if (error || !data) { setSyncStatus(false); return; }
+            const knownIds = new Set(allOrders.map(o => String(o.id)));
+            const newOrders = data.filter(o => !knownIds.has(String(o.id)));
+            newOrders.forEach(order => notifyNewOrder(order));
+            if (newOrders.length > 0 || data.length !== allOrders.length) {
+                allOrders = data;
+                renderOrders();
+                calculateStats();
+            }
+            setSyncStatus(true);
+        } catch(e) {
+            console.warn('poll error:', e);
+            setSyncStatus(false);
+            // NE PAS déconnecter - juste signaler l'erreur
+        }
+    }, 4000);
 }
 
 function notifyNewOrder(order) {
