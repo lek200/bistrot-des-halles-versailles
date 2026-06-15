@@ -240,9 +240,9 @@ async function init() {
 
 async function loadState() {
     try {
-        const { data } = await db.from('state').select('*').eq('key', 'app_state').single();
-        if (data && data.value) {
-            appState = data.value;
+        const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
+        if (!error && data && data.value) {
+            appState = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
         } else {
             // État par défaut si rien en base
             appState = {
