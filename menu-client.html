@@ -124,6 +124,11 @@
         /* LOADING */
         .loading { text-align: center; padding: 40px; color: #9ca3af; font-style: italic; }
 
+        /* LANGUAGE SWITCHER */
+        .lang-switcher { display: flex; gap: 6px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
+        .lang-btn { background: white; border: 1.5px solid var(--taupe); color: var(--burgundy); padding: 6px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
+        .lang-btn.active { background: var(--burgundy); color: white; border-color: var(--burgundy); }
+
         /* NUMÉRO COMMANDE */
         .order-number-badge { background: var(--burgundy); color: var(--cream); font-family: 'Playfair Display', serif; font-size: 2rem; font-weight: 700; padding: 14px 28px; border-radius: 12px; letter-spacing: 4px; margin: 14px 0; display: inline-block; }
         .order-number-hint { font-size: 0.78rem; color: #6b7280; margin-bottom: 8px; }
@@ -194,7 +199,13 @@
 <div class="sas-screen" id="view-sas">
     <div class="sas-logo">BH</div>
     <h1>Le Bistrot des Halles</h1>
-    <p>Commandez directement depuis votre table</p>
+    <p id="sas-subtitle">Commandez directement depuis votre table</p>
+    <div class="lang-switcher">
+        <button class="lang-btn active" onclick="setLang('fr')">🇫🇷 FR</button>
+        <button class="lang-btn" onclick="setLang('en')">🇬🇧 EN</button>
+        <button class="lang-btn" onclick="setLang('es')">🇪🇸 ES</button>
+        <button class="lang-btn" onclick="setLang('zh')">🇨🇳 中文</button>
+    </div>
     <div id="sas-buttons" style="width:100%; display:flex; flex-direction:column; align-items:center;">
         <div class="loading">Chargement du menu...</div>
     </div>
@@ -371,7 +382,14 @@ async function init() {
     const tableParam = params.get('table');
     if (tableParam) window._detectedTable = tableParam;
 
+    // Détecter langue depuis URL ?lang=en
+    const langParam = params.get('lang');
+    if (langParam && TRANSLATIONS[langParam]) {
+        localStorage.setItem('bh_lang', langParam);
+    }
+
     renderSas();
+    setTimeout(restoreLang, 100);
 }
 
 async function loadState() {
@@ -1034,6 +1052,195 @@ function renderOrderHistory() {
     if (hist.length > 1) {
         list.innerHTML += '<div style="display:flex;justify-content:space-between;font-weight:800;padding:8px 0;border-top:2px solid #601424;color:#601424;font-size:0.95rem;">'
             + '<span>Total de la soirée</span><span>' + grandTotal.toFixed(2) + '€</span></div>';
+    }
+}
+
+// ── TRADUCTIONS ──
+const TRANSLATIONS = {
+    fr: {
+        subtitle: 'Commandez directement depuis votre table',
+        backBtn: '← Retour',
+        addBtn: '+ Ajouter',
+        cartTitle: '🛒 Mon panier',
+        tableLabel: '📍 Votre table',
+        tablePlaceholder: '-- Sélectionnez votre table --',
+        nameLabel: '👤 Votre prénom (optionnel)',
+        namePlaceholder: 'Ex: Marie',
+        sendBtn: '✅ Envoyer la commande',
+        orderSent: 'Commande envoyée !',
+        orderSentSub: 'Le bar a bien reçu votre commande.',
+        orderNumHint: 'Votre numéro de commande',
+        orderNumNote: 'Notez ce numéro — il vous permet de retrouver votre commande',
+        etaLabel: 'Temps estimé',
+        newOrderBtn: '+ Nouvelle commande',
+        historyBtn: '📋 Mes commandes',
+        cartFab: '🛒 Panier',
+        suggestTitle: '💡 Les clients aiment aussi',
+        tableAuto: '📍 Table détectée automatiquement',
+        findTitle: '🔍 Retrouver une commande',
+        findBtn: 'Retrouver ma commande',
+        findPlaceholder: 'BH-XXXX',
+        totalNight: 'Total de la soirée',
+        noOrder: 'Aucune commande ce soir.',
+        historyTitle: '📋 Mes commandes',
+        tableSelect: '-- Table --',
+    },
+    en: {
+        subtitle: 'Order directly from your table',
+        backBtn: '← Back',
+        addBtn: '+ Add',
+        cartTitle: '🛒 My cart',
+        tableLabel: '📍 Your table',
+        tablePlaceholder: '-- Select your table --',
+        nameLabel: '👤 Your first name (optional)',
+        namePlaceholder: 'Ex: Mary',
+        sendBtn: '✅ Send order',
+        orderSent: 'Order sent!',
+        orderSentSub: 'The bar has received your order.',
+        orderNumHint: 'Your order number',
+        orderNumNote: 'Note this number — use it to find your order',
+        etaLabel: 'Estimated time',
+        newOrderBtn: '+ New order',
+        historyBtn: '📋 My orders',
+        cartFab: '🛒 Cart',
+        suggestTitle: '💡 Customers also like',
+        tableAuto: '📍 Table detected automatically',
+        findTitle: '🔍 Find an order',
+        findBtn: 'Find my order',
+        findPlaceholder: 'BH-XXXX',
+        totalNight: 'Evening total',
+        noOrder: 'No orders tonight.',
+        historyTitle: '📋 My orders',
+        tableSelect: '-- Table --',
+    },
+    es: {
+        subtitle: 'Pida directamente desde su mesa',
+        backBtn: '← Volver',
+        addBtn: '+ Añadir',
+        cartTitle: '🛒 Mi carrito',
+        tableLabel: '📍 Su mesa',
+        tablePlaceholder: '-- Seleccione su mesa --',
+        nameLabel: '👤 Su nombre (opcional)',
+        namePlaceholder: 'Ej: Maria',
+        sendBtn: '✅ Enviar pedido',
+        orderSent: '¡Pedido enviado!',
+        orderSentSub: 'El bar ha recibido su pedido.',
+        orderNumHint: 'Su número de pedido',
+        orderNumNote: 'Anote este número para encontrar su pedido',
+        etaLabel: 'Tiempo estimado',
+        newOrderBtn: '+ Nuevo pedido',
+        historyBtn: '📋 Mis pedidos',
+        cartFab: '🛒 Carrito',
+        suggestTitle: '💡 Los clientes también piden',
+        tableAuto: '📍 Mesa detectada automáticamente',
+        findTitle: '🔍 Buscar un pedido',
+        findBtn: 'Buscar mi pedido',
+        findPlaceholder: 'BH-XXXX',
+        totalNight: 'Total de la noche',
+        noOrder: 'Sin pedidos esta noche.',
+        historyTitle: '📋 Mis pedidos',
+        tableSelect: '-- Mesa --',
+    },
+    zh: {
+        subtitle: '直接从您的桌子点餐',
+        backBtn: '← 返回',
+        addBtn: '+ 添加',
+        cartTitle: '🛒 我的购物车',
+        tableLabel: '📍 您的桌号',
+        tablePlaceholder: '-- 请选择桌号 --',
+        nameLabel: '👤 您的姓名（可选）',
+        namePlaceholder: '例：张先生',
+        sendBtn: '✅ 发送订单',
+        orderSent: '订单已发送！',
+        orderSentSub: '吧台已收到您的订单。',
+        orderNumHint: '您的订单号',
+        orderNumNote: '请记下此号码以便查询订单',
+        etaLabel: '预计等待时间',
+        newOrderBtn: '+ 新订单',
+        historyBtn: '📋 我的订单',
+        cartFab: '🛒 购物车',
+        suggestTitle: '💡 顾客也喜欢',
+        tableAuto: '📍 已自动检测桌号',
+        findTitle: '🔍 查找订单',
+        findBtn: '查找我的订单',
+        findPlaceholder: 'BH-XXXX',
+        totalNight: '本晚总计',
+        noOrder: '今晚暂无订单。',
+        historyTitle: '📋 我的订单',
+        tableSelect: '-- 桌号 --',
+    }
+};
+
+let currentLang = 'fr';
+
+function setLang(lang) {
+    currentLang = lang;
+    const t = TRANSLATIONS[lang];
+
+    // Mettre à jour les boutons de langue
+    document.querySelectorAll('.lang-btn').forEach(b => b.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+
+    // SAS
+    const sub = document.getElementById('sas-subtitle');
+    if (sub) sub.textContent = t.subtitle;
+
+    // Header menu
+    const backBtn = document.querySelector('.btn-back');
+    if (backBtn) backBtn.textContent = t.backBtn;
+
+    // Panier modal
+    const cartTitle = document.querySelector('.cart-modal-title');
+    if (cartTitle) cartTitle.textContent = t.cartTitle;
+
+    const tableLabel = document.querySelector('.client-field label');
+    if (tableLabel) tableLabel.textContent = t.tableLabel;
+
+    const tableSel = document.getElementById('table-number');
+    if (tableSel && tableSel.options[0]) tableSel.options[0].text = t.tablePlaceholder;
+
+    const nameInput = document.getElementById('client-name');
+    if (nameInput) nameInput.placeholder = t.namePlaceholder;
+
+    const sendBtn = document.getElementById('btn-send');
+    if (sendBtn) sendBtn.textContent = t.sendBtn;
+
+    // Confirmation
+    const orderSentH2 = document.querySelector('.order-confirm h2');
+    if (orderSentH2) orderSentH2.textContent = t.orderSent;
+
+    const newOrderBtn = document.querySelector('.btn-new-order');
+    if (newOrderBtn) newOrderBtn.textContent = t.newOrderBtn;
+
+    // FABs
+    const histFab = document.getElementById('history-fab');
+    if (histFab) histFab.textContent = t.historyBtn;
+
+    // Suggestions
+    const suggestTitle = document.querySelector('.suggestions-title');
+    if (suggestTitle) suggestTitle.textContent = t.suggestTitle;
+
+    // Retrouver commande
+    const findBox = document.getElementById('find-order-box');
+    if (findBox) {
+        const label = findBox.querySelector('label');
+        if (label) label.textContent = t.findTitle;
+        const btn = findBox.querySelector('button');
+        if (btn) btn.textContent = t.findBtn;
+        const input = document.getElementById('find-order-input');
+        if (input) input.placeholder = t.findPlaceholder;
+    }
+
+    // Sauvegarder la langue
+    localStorage.setItem('bh_lang', lang);
+}
+
+// Restaurer la langue au chargement
+function restoreLang() {
+    const saved = localStorage.getItem('bh_lang') || 'fr';
+    if (saved !== 'fr') {
+        const btn = document.querySelector(`.lang-btn[onclick="setLang('${saved}')"]`);
+        if (btn) btn.click();
     }
 }
 
