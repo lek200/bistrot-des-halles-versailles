@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Import Photos Unsplash</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: Arial, sans-serif; background: #f3f4f6; padding: 30px; }
+.box { background: white; padding: 30px; border-radius: 16px; max-width: 700px; margin: 0 auto; box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+h2 { color: #601424; margin-bottom: 8px; }
+p { color: #6b7280; margin-bottom: 20px; font-size: 0.88rem; }
+.btn { background: #601424; color: white; border: none; padding: 12px 24px; border-radius: 8px; font-size: 0.9rem; font-weight: 700; cursor: pointer; margin-right: 8px; }
+.btn.green { background: #10b981; }
+.btn:disabled { background: #9ca3af; cursor: not-allowed; }
+.progress { background: #f3f4f6; border-radius: 20px; height: 10px; margin: 16px 0; overflow: hidden; }
+.progress-bar { height: 100%; background: #601424; border-radius: 20px; transition: width 0.3s; width: 0%; }
+.log { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 12px; height: 300px; overflow-y: auto; font-size: 0.78rem; font-family: monospace; margin-top: 16px; }
+.log div { padding: 2px 0; border-bottom: 1px solid #f3f4f6; }
+.log .ok { color: #065f46; }
+.log .skip { color: #6b7280; }
+.log .err { color: #991b1b; }
+.summary { background: #d1fae5; color: #065f46; padding: 12px; border-radius: 8px; font-weight: 700; margin-top: 12px; display: none; }
+</style>
+</head>
+<body>
+<div class="box">
+    <h2>📸 Import Photos Unsplash</h2>
+    <p>Recherche automatiquement une photo pour chaque article du menu qui n'en a pas encore. Les articles avec déjà une photo sont ignorés.</p>
+    <button class="btn" onclick="startImport()" id="start-btn">🔍 Lancer la recherche</button>
+    <button class="btn green" onclick="savePhotos()" id="save-btn" disabled>💾 Sauvegarder les photos</button>
+    <div class="progress"><div class="progress-bar" id="progress-bar"></div></div>
+    <div id="status" style="font-size:0.82rem;color:#6b7280;margin-bottom:8px;">En attente...</div>
+    <div class="log" id="log"></div>
+    <div class="summary" id="summary"></div>
+</div>
+
+<script>
+const db = supabase.createClient(
+    'https://mvxqpysdbngyazzzdbkc.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHFweXNkYm5neWF6enpkYmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTgyNzgsImV4cCI6MjA5NjkzNDI3OH0.Y0v4pHdGHF6oGMP4AbTyMjIAZLJk-S7iWL0p_SaRJAs'
+);
+
+const UNSPLASH_KEY = 'zgw-EvOABrrk1Mw1qckNyouUui74wXK-jTt9NkrEfwE';
+
+const SEARCH_TERMS = {
+    'côtes du rhône': 'red wine glass', 'cabernet': 'red wine', 'brouilly': 'red wine bottle',
+    'bordeaux': 'bordeaux wine', 'sauvignon': 'white wine glass', 'riesling': 'white wine',
+    'edelzwicker': 'alsace wine', 'chardonnay': 'white wine glass', 'bourgogne': 'burgundy wine',
+    'macon': 'white wine', 'menetou': 'sancerre wine', 'sancerre': 'wine glass',
+    'pouilly': 'white wine bottle', 'chablis': 'chablis wine', 'gewurztraminer': 'alsace wine',
+    'rosé ordinaire': 'rose wine glass', 'estandon': 'rose wine', 'champagne': 'champagne glass',
+    'haut médoc': 'bordeaux red wine', 'st emilion': 'saint emilion wine', 'st nicolas': 'red wine bottle',
+    'j&b': 'whisky glass', 'jack daniel': 'jack daniels whisky', 'four roses': 'bourbon whisky',
+    'johnnie walker': 'scotch whisky', 'chivas': 'chivas whisky', 'florinac': 'cognac glass',
+    'café expresso': 'espresso coffee', 'café noisette': 'noisette coffee', 'café allongé': 'americano coffee',
+    'café serré': 'espresso', 'double expresso': 'double espresso', 'café crème': 'café crème coffee',
+    'cappuccino': 'cappuccino', 'chocolat chaud': 'hot chocolate',
+    'coca': 'coca cola glass', 'fuse tea': 'iced tea', 'orangina': 'orangina drink',
+    'schweppes': 'tonic water', 'oasis': 'orange juice drink', 'red bull': 'red bull energy drink',
+    'limonade': 'lemonade glass', 'sirop': 'syrup drink colorful', 'jus de fruits': 'fresh fruit juice',
+    'fruits frais': 'fresh squeezed juice',
+    'ricard': 'pastis drink', 'suze': 'aperitif drink', 'salers': 'aperitif drink',
+    'martini': 'martini cocktail', 'kit': 'kir drink', 'vittel': 'mineral water glass', 'perrier': 'sparkling water',
+    'super bock': 'beer bottle', 'desperados': 'desperados beer', 'corona': 'corona beer',
+    'heineken': 'heineken beer', 'hoegaarden': 'wheat beer', 'eichbaum': 'draft beer',
+    '1664': 'kronenbourg beer', 'leffe': 'leffe beer', 'bière du moment': 'craft beer tap',
+    'ti punch': 'ti punch cocktail rum', 'aperol spritz': 'aperol spritz cocktail',
+    'mojito': 'mojito cocktail mint', 'expresso martini': 'espresso martini cocktail',
+    'big apple martini': 'apple martini cocktail', 'kiwi comber': 'kiwi cocktail',
+    'vodka': 'vodka shot glass', 'get 27': 'mint liqueur shot', 'baileys': 'baileys cream',
+    'mandarine': 'mandarine napoleon liqueur', 'orgasm': 'creamy cocktail shot',
+    'shooter': 'colorful shot glass', 'lemon drop': 'lemon drop shot',
+    'ginger lemon': 'ginger lemon shot', 'port royal': 'rum cocktail shot',
+    'tortuga': 'rum strawberry cocktail', 'barracuda': 'berry cocktail',
+    'virgin bellini': 'bellini mocktail peach', 'virgin mojito': 'virgin mojito mint',
+    'lichi spritz': 'lychee spritz mocktail', 'amazon lily': 'tropical mocktail',
+    'ginger tatin': 'ginger apple mocktail'
+};
+
+function getSearchQuery(name) {
+    const lower = name.toLowerCase();
+    for (const [key, val] of Object.entries(SEARCH_TERMS)) {
+        if (lower.includes(key)) return val;
+    }
+    return name + ' cocktail bar drink';
+}
+
+function addLog(msg, type = '') {
+    const log = document.getElementById('log');
+    const div = document.createElement('div');
+    div.className = type;
+    div.textContent = msg;
+    log.appendChild(div);
+    log.scrollTop = log.scrollHeight;
+}
+
+let updatedProducts = null;
+
+async function startImport() {
+    const btn = document.getElementById('start-btn');
+    const saveBtn = document.getElementById('save-btn');
+    btn.disabled = true;
+    btn.textContent = 'Recherche en cours...';
+
+    const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
+    if (error || !data) { addLog('❌ Impossible de charger la carte', 'err'); btn.disabled = false; return; }
+
+    const state = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    const products = state.products;
+    updatedProducts = [...products];
+
+    let done = 0, found = 0, skipped = 0;
+    const total = products.filter(p => !p.mediaUrl).length;
+
+    document.getElementById('status').textContent = `0 / ${total} articles à traiter`;
+
+    for (let i = 0; i < updatedProducts.length; i++) {
+        const p = updatedProducts[i];
+        if (p.mediaUrl) { skipped++; addLog(`⏭️ ${p.name} — déjà une photo`, 'skip'); continue; }
+
+        const query = getSearchQuery(p.name);
+        try {
+            const resp = await fetch(
+                `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=1&orientation=squarish`,
+                { headers: { Authorization: 'Client-ID ' + UNSPLASH_KEY } }
+            );
+            const data = await resp.json();
+            if (data.results && data.results.length > 0) {
+                updatedProducts[i] = { ...p, mediaUrl: data.results[0].urls.regular, mediaType: 'image' };
+                addLog(`✅ ${p.name} → photo trouvée`, 'ok');
+                found++;
+            } else {
+                addLog(`⚠️ ${p.name} — aucune photo`, 'err');
+            }
+        } catch(e) {
+            addLog(`❌ ${p.name} — erreur réseau`, 'err');
+        }
+
+        done++;
+        const pct = Math.round((done / total) * 100);
+        document.getElementById('progress-bar').style.width = pct + '%';
+        document.getElementById('status').textContent = `${done} / ${total} traités — ${found} photos trouvées`;
+
+        // Pause pour respecter la limite Unsplash (50 req/heure demo)
+        await new Promise(r => setTimeout(r, 1200));
+    }
+
+    btn.textContent = '✅ Recherche terminée';
+    saveBtn.disabled = false;
+    addLog(`
+📊 Résumé : ${found} photos trouvées, ${skipped} ignorés`, 'ok');
+}
+
+async function savePhotos() {
+    if (!updatedProducts) return;
+    const saveBtn = document.getElementById('save-btn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Sauvegarde...';
+
+    const { data } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
+    const state = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+    state.products = updatedProducts;
+
+    const { error } = await db.from('state').update({ value: JSON.stringify(state) }).eq('key', 'app_state');
+    if (!error) {
+        const summary = document.getElementById('summary');
+        summary.textContent = '✅ Photos sauvegardées ! Rechargez le menu client pour les voir.';
+        summary.style.display = 'block';
+        saveBtn.textContent = '✅ Sauvegardé !';
+    } else {
+        saveBtn.textContent = 'Erreur — réessayer';
+        saveBtn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>
