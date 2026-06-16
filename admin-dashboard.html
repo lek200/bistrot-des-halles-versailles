@@ -236,7 +236,10 @@
                 <button class="btn-enable-notif" onclick="requestNotifPermission()">Activer</button>
             </div>
             <div class="card">
-                <h2>🔴 Commandes en attente <span id="pending-count" style="background:var(--danger);color:white;padding:2px 8px;border-radius:20px;font-size:0.75rem;margin-left:6px;">0</span></h2>
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px;flex-wrap:wrap;">
+                    <h2 style="margin:0;flex:1;">🔴 Commandes <span id="pending-count" style="background:var(--danger);color:white;padding:2px 8px;border-radius:20px;font-size:0.75rem;">0</span></h2>
+                    <input type="text" id="order-search" class="form-control" placeholder="🔍 N° BH-XXXX, table, nom..." style="width:200px;font-size:0.8rem;" oninput="filterOrders(this.value)">
+                </div>
                 <div class="orders-live" id="orders-list">
                     <div class="empty-orders">Aucune commande en attente</div>
                 </div>
@@ -638,11 +641,14 @@ function renderOrders() {
 
         const status = order.status || 'pending';
         const eta = getETA(order);
+        const orderNum = order.order_number ? `<span style="background:#f3f4f6;color:#374151;font-size:0.72rem;font-weight:700;padding:2px 8px;border-radius:12px;margin-left:6px;letter-spacing:1px;">${order.order_number}</span>` : '';
         const div = document.createElement('div');
         div.className = `order-card ${status === 'paid' ? 'done' : ''} ${status === 'cancelled' ? 'cancelled' : ''}`;
+        div.dataset.orderNum = order.order_number || '';
+        div.dataset.table = order.table_number || '';
         div.innerHTML = `
             <div class="order-card-header">
-                <span class="order-table">📍 ${order.table_number}</span>
+                <span class="order-table">📍 ${order.table_number}${orderNum}</span>
                 <span class="order-time">${time}</span>
             </div>
             <div class="order-items">${itemsHtml}</div>
@@ -662,10 +668,12 @@ function renderOrders() {
 }
 
 async function setOrderStatus(orderId, newStatus) {
-    const { error } = await db.from('orders').update({ status: newStatus }).eq('id', orderId);
+    const updateData = { status: newStatus };
+    if (newStatus === 'done') updateData.completed_at = new Date().toISOString();
+    const { error } = await db.from('orders').update(updateData).eq('id', orderId);
     if (!error) {
         const order = allOrders.find(o => String(o.id) === String(orderId));
-        if (order) order.status = newStatus;
+        if (order) { order.status = newStatus; if (newStatus === 'done') order.completed_at = updateData.completed_at; }
         renderOrders();
         calculateStats();
         const labels = { pending: 'En attente', preparing: 'En préparation', done: 'Effectué', paid: 'Payé' };
@@ -685,6 +693,17 @@ async function cancelOrder(orderId) {
         calculateStats();
         showToast('Commande annulée', 'alert');
     }
+}
+
+function filterOrders(query) {
+    const q = query.toLowerCase().trim();
+    document.querySelectorAll('.order-card').forEach(card => {
+        if (!q) { card.style.display = 'block'; return; }
+        const num = (card.dataset.orderNum || '').toLowerCase();
+        const table = (card.dataset.table || '').toLowerCase();
+        const text = card.textContent.toLowerCase();
+        card.style.display = (num.includes(q) || table.includes(q) || text.includes(q)) ? 'block' : 'none';
+    });
 }
 
 // Calcul ETA basé sur les commandes passées (temps moyen entre création et "done")
