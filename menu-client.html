@@ -65,6 +65,11 @@
         /* PANIER */
         /* PANIER MODAL */
         .cart-fab { position: fixed; bottom: 20px; right: 20px; background: var(--burgundy); color: white; border: none; border-radius: 50px; padding: 12px 20px; font-weight: 700; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 15px rgba(96,20,36,0.4); display: none; z-index: 200; }
+        .history-fab { position: fixed; bottom: 20px; left: 20px; background: #374151; color: white; border: none; border-radius: 50px; padding: 12px 16px; font-weight: 700; font-size: 0.82rem; cursor: pointer; box-shadow: 0 4px 15px rgba(0,0,0,0.3); display: none; z-index: 200; }
+        .history-modal { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; padding: 20px; z-index: 301; max-height: 80vh; overflow-y: auto; transform: translateY(100%); transition: transform 0.3s ease; }
+        .history-modal.open { transform: translateY(0); }
+        .history-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .history-modal-title { font-family: 'Playfair Display', serif; color: var(--burgundy); font-size: 1.1rem; font-weight: 700; }
         .cart-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; display: none; }
         .cart-overlay.open { display: block; }
         .cart-modal { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; padding: 20px; z-index: 301; max-height: 80vh; overflow-y: auto; transform: translateY(100%); transition: transform 0.3s ease; }
@@ -211,6 +216,19 @@
 
 <!-- OVERLAY -->
 <div class="cart-overlay" id="cart-overlay" onclick="closeCart()"></div>
+
+<!-- BOUTON MES COMMANDES -->
+<button class="history-fab" id="history-fab" onclick="openHistory()">📋 Mes commandes</button>
+
+<!-- MODAL HISTORIQUE -->
+<div class="cart-overlay" id="history-overlay" onclick="closeHistory()"></div>
+<div class="history-modal" id="history-modal">
+    <div class="history-modal-header">
+        <span class="history-modal-title">📋 Mes commandes</span>
+        <button class="cart-close" onclick="closeHistory()">✕</button>
+    </div>
+    <div id="history-modal-content"></div>
+</div>
 
 <!-- MODAL PANIER -->
 <div class="cart-modal" id="cart-modal">
@@ -561,6 +579,45 @@ function closeCart() {
     document.getElementById('cart-overlay').classList.remove('open');
 }
 
+function openHistory() {
+    const modal = document.getElementById('history-modal');
+    const overlay = document.getElementById('history-overlay');
+    const container = document.getElementById('history-modal-content');
+    if (!modal) return;
+
+    const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
+    if (!hist.length) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;font-style:italic;">Aucune commande passée ce soir.</div>';
+    } else {
+        let html = '';
+        let grandTotal = 0;
+        hist.forEach((entry, i) => {
+            grandTotal += entry.total;
+            const itemsStr = entry.items.map(it => it.qty + 'x ' + it.name).join(', ');
+            html += '<div style="background:#fff8f0;border:1px solid #e5d9c8;border-radius:10px;padding:12px;margin-bottom:10px;">'
+                + '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:0.88rem;color:#601424;">'
+                + '<span>Commande ' + (i+1) + ' · ' + entry.time + '</span>'
+                + '<span>' + entry.total.toFixed(2) + '€</span></div>'
+                + '<div style="font-size:0.78rem;color:#6b7280;margin-top:2px;">📍 ' + entry.table + '</div>'
+                + '<div style="font-size:0.82rem;margin-top:6px;color:#374151;line-height:1.5;">' + itemsStr + '</div>'
+                + '</div>';
+        });
+        if (hist.length > 1) {
+            html += '<div style="display:flex;justify-content:space-between;font-weight:800;padding:12px 0;border-top:2px solid #601424;color:#601424;font-size:1rem;margin-top:4px;">'
+                + '<span>Total de la soirée</span><span>' + grandTotal.toFixed(2) + '€</span></div>';
+        }
+        container.innerHTML = html;
+    }
+
+    modal.classList.add('open');
+    overlay.classList.add('open');
+}
+
+function closeHistory() {
+    document.getElementById('history-modal').classList.remove('open');
+    document.getElementById('history-overlay').classList.remove('open');
+}
+
 function updateProductBadges() {
     // Mettre à jour les badges sur les boutons "Ajouter"
     document.querySelectorAll('[data-product-id]').forEach(btn => {
@@ -618,6 +675,9 @@ async function sendOrder() {
     const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
     hist.push(histEntry);
     sessionStorage.setItem('order_history', JSON.stringify(hist));
+    // Afficher bouton "Mes commandes"
+    const hFab = document.getElementById('history-fab');
+    if (hFab) hFab.style.display = 'flex';
 
     document.getElementById('menu-items').style.display = 'none';
     document.getElementById('menu-switcher').style.display = 'none';
