@@ -1460,81 +1460,84 @@ function generateAllTableQR() {
         // Générer QR puis composer canvas final
         new QRCode(qrWrap, { text: url, width: 130, height: 130, colorDark: '#601424', colorLight: '#ede2cf', correctLevel: QRCode.CorrectLevel.H });
 
-        setTimeout(() => {
-            const qrImg = qrWrap.querySelector('img') || qrWrap.querySelector('canvas');
-            if (!qrImg) return;
+        // Attendre que le QR soit généré puis composer le canvas
+        function composeQR(table, qrWrap, dlBtn) {
+            const qrCanvas = qrWrap.querySelector('canvas');
+            const qrImg = qrWrap.querySelector('img');
+            const source = qrCanvas || qrImg;
+            if (!source) { setTimeout(() => composeQR(table, qrWrap, dlBtn), 100); return; }
 
-            // Canvas final : logo BH + QR + nom table
+            const W = 200, H = 270;
             const canvas = document.createElement('canvas');
-            const W = 200, H = 260;
             canvas.width = W; canvas.height = H;
             const ctx = canvas.getContext('2d');
 
-            // Fond crème
-            ctx.fillStyle = '#ede2cf';
-            ctx.fillRect(0, 0, W, H);
+            function draw(src) {
+                // Fond crème
+                ctx.fillStyle = '#ede2cf';
+                ctx.fillRect(0, 0, W, H);
 
-            // Bordure arrondie
-            ctx.strokeStyle = '#601424';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.roundRect(2, 2, W-4, H-4, 10);
-            ctx.stroke();
+                // Bordure
+                ctx.strokeStyle = '#601424';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.roundRect(2, 2, W-4, H-4, 10);
+                ctx.stroke();
 
-            // Logo BH cercle
-            ctx.fillStyle = '#601424';
-            ctx.beginPath();
-            ctx.arc(W/2, 30, 22, 0, Math.PI*2);
-            ctx.fill();
-            ctx.fillStyle = '#ede2cf';
-            ctx.font = 'bold 14px Georgia';
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('BH', W/2, 30);
-
-            // Dessiner QR
-            const drawQR = () => {
-                ctx.drawImage(qrImg, (W-140)/2, 55, 140, 140);
-
-                // Nom table
+                // Logo BH
                 ctx.fillStyle = '#601424';
-                ctx.font = 'bold 15px Georgia';
+                ctx.beginPath();
+                ctx.arc(W/2, 32, 22, 0, Math.PI*2);
+                ctx.fill();
+                ctx.fillStyle = '#ede2cf';
+                ctx.font = 'bold 14px Georgia';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText(table, W/2, 215);
+                ctx.fillText('BH', W/2, 32);
 
-                // Ligne décorative
+                // QR
+                ctx.drawImage(src, (W-145)/2, 58, 145, 145);
+
+                // Ligne
                 ctx.strokeStyle = '#b2a48f';
                 ctx.lineWidth = 1;
                 ctx.beginPath();
-                ctx.moveTo(20, 200); ctx.lineTo(W-20, 200);
+                ctx.moveTo(20, 212); ctx.lineTo(W-20, 212);
                 ctx.stroke();
 
-                // Bistrot des Halles petit
-                ctx.fillStyle = '#b2a48f';
-                ctx.font = '10px Georgia';
-                ctx.fillText('Le Bistrot des Halles', W/2, 240);
+                // Nom table
+                ctx.fillStyle = '#601424';
+                ctx.font = 'bold 16px Georgia';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(table, W/2, 228);
 
-                // Ajouter aperçu dans cell
-                canvas.style.cssText = 'border-radius:8px;display:block;margin:0 auto;';
+                // Sous-titre
+                ctx.fillStyle = '#b2a48f';
+                ctx.font = '9px Georgia';
+                ctx.fillText('Le Bistrot des Halles — Versailles', W/2, 252);
+
+                canvas.style.cssText = 'display:block;margin:0 auto;border-radius:8px;';
                 qrWrap.innerHTML = '';
                 qrWrap.appendChild(canvas);
 
                 dlBtn.onclick = () => {
                     const a = document.createElement('a');
                     a.href = canvas.toDataURL('image/png');
-                    a.download = 'qr-' + table.replace(/ /g,'-') + '.png';
+                    a.download = 'qr-' + table.replace(/ /g, '-') + '.png';
                     a.click();
                 };
-            };
-
-            if (qrImg.tagName === 'CANVAS') {
-                drawQR();
-            } else {
-                qrImg.onload ? qrImg.onload = drawQR : drawQR();
-                if (qrImg.complete) drawQR();
             }
-        }, 300);
+
+            if (qrCanvas) {
+                draw(qrCanvas);
+            } else if (qrImg && qrImg.complete) {
+                draw(qrImg);
+            } else if (qrImg) {
+                qrImg.onload = () => draw(qrImg);
+            }
+        }
+        setTimeout(() => composeQR(table, qrWrap, dlBtn), 500);
     });
 }
 
