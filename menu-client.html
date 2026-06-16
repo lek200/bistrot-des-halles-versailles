@@ -532,26 +532,26 @@ function updateCartUI() {
     }
 }
 
+function setDetectedTable() {
+    const detected = window._detectedTable;
+    if (!detected) return;
+    const sel = document.getElementById('table-number');
+    if (!sel) return;
+    // Chercher option existante
+    for (let opt of sel.options) {
+        if (opt.value === detected) { sel.value = detected; return; }
+    }
+    // Créer l'option si pas trouvée
+    const opt = document.createElement('option');
+    opt.value = detected; opt.textContent = detected;
+    sel.appendChild(opt);
+    sel.value = detected;
+}
+
 function openCart() {
     document.getElementById('cart-modal').classList.add('open');
     document.getElementById('cart-overlay').classList.add('open');
-
-    // Pré-remplir la table depuis URL ou sélection précédente
-    const sel = document.getElementById('table-number');
-    if (sel && sel.value === '') {
-        const detected = window._detectedTable || new URLSearchParams(window.location.search).get('table');
-        if (detected) {
-            let found = false;
-            for (let opt of sel.options) {
-                if (opt.value === detected) { sel.value = detected; found = true; break; }
-            }
-            if (!found) {
-                const opt = document.createElement('option');
-                opt.value = detected; opt.textContent = detected;
-                sel.appendChild(opt); sel.value = detected;
-            }
-        }
-    }
+    setDetectedTable();
 }
 
 function closeCart() {
