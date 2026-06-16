@@ -7,6 +7,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
     <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         :root {
@@ -341,6 +342,16 @@
                 <div style="display:flex;gap:8px;flex-wrap:wrap;">
                     <button class="btn-submit" style="background:#1d6f42;flex:1;" onclick="exportExcel('orders')">📥 Commandes (.xlsx)</button>
                     <button class="btn-submit" style="background:#1565c0;flex:1;" onclick="exportExcel('products')">📥 Ventes par article (.xlsx)</button>
+                </div>
+            </div>
+
+            <!-- EXPORT EXCEL -->
+            <div class="card">
+                <h2>📊 Export des données</h2>
+                <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;">Exporte les commandes de la période sélectionnée en fichier Excel.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn-submit" style="background:#10b981;flex:1;" onclick="exportExcel('orders')">📥 Commandes</button>
+                    <button class="btn-submit" style="background:var(--burgundy);flex:1;" onclick="exportExcel('products')">📥 Ventes par article</button>
                 </div>
             </div>
         </div>
@@ -1558,6 +1569,107 @@ function exportExcel(type) {
     XLSX.utils.book_append_sheet(wb, ws, type === 'orders' ? 'Commandes' : 'Ventes');
     XLSX.writeFile(wb, filename);
     showToast('Export téléchargé : ' + filename);
+}
+
+// ── EXPORT EXCEL ──
+function exportExcel(type) {
+    const now = new Date();
+    let filtered = allOrders.filter(o => o.status !== 'cancelled');
+
+    // Appliquer la même période que les stats
+    if (appState.currentPeriod === 'today') {
+        filtered = filtered.filter(o => new Date(o.created_at).toDateString() === now.toDateString());
+    } else if (appState.currentPeriod === 'week') {
+        const week = new Date(now); week.setDate(now.getDate() - 7);
+        filtered = filtered.filter(o => new Date(o.created_at) >= week);
+    } else if (appState.currentPeriod === 'month') {
+        filtered = filtered.filter(o => {
+            const d = new Date(o.created_at);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+    } else if (appState.currentPeriod === 'custom') {
+        const startEl = document.getElementById('date-start');
+        const endEl = document.getElementById('date-end');
+        if (startEl?.value) {
+            const start = new Date(startEl.value);
+            const end = endEl?.value ? new Date(endEl.value + 'T23:59:59') : now;
+            filtered = filtered.filter(o => { const d = new Date(o.created_at); return d >= start && d <= end; });
+        }
+    }
+
+    if (!filtered.length) { showToast('Aucune commande sur cette période', 'alert'); return; }
+
+    const wb = XLSX.utils.book_new();
+    const periodLabel = { today: 'Aujourd-hui', week: '7-jours', month: 'Ce-mois', all: 'Tout', custom: 'Personnalise' }[appState.currentPeriod] || 'export';
+    const dateStr = now.toLocaleDateString('fr-FR').replace(/\//g, '-');
+
+    if (type === 'orders') {
+        // Feuille 1 : Toutes les commandes
+        const rows = filtered.map(o => {
+            const d = new Date(o.created_at);
+            return {
+                'N° Commande': o.order_number || '-',
+                'Date': d.toLocaleDateString('fr-FR'),
+                'Heure': d.toLocaleTimeString('fr-FR', {hour:'2-digit', minute:'2-digit'}),
+                'Table': o.table_number || '-',
+                'Articles': (o.items || []).map(i => i.qty + 'x ' + i.name).join(', '),
+                'Total (€)': parseFloat(o.total || 0).toFixed(2),
+                'Statut': { pending: 'En attente', preparing: 'En preparation', done: 'Effectue', paid: 'Paye', cancelled: 'Annule' }[o.status] || o.status
+            };
+        });
+
+        // Ligne de résumé
+        const totalCA = filtered.reduce((s, o) => s + parseFloat(o.total || 0), 0);
+        rows.push({});
+        rows.push({ 'N° Commande': 'TOTAL', 'Articles': filtered.length + ' commandes', 'Total (€)': totalCA.toFixed(2) });
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 12 }, { wch: 12 }, { wch: 8 }, { wch: 12 }, { wch: 50 }, { wch: 10 }, { wch: 12 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Commandes');
+
+    } else if (type === 'products') {
+        // Feuille 2 : Ventes par article
+        const productSales = {};
+        filtered.forEach(o => {
+            (o.items || []).forEach(item => {
+                const key = item.name;
+                if (!productSales[key]) productSales[key] = { name: item.name, qty: 0, revenue: 0 };
+                productSales[key].qty += item.qty || 1;
+                productSales[key].revenue += (item.price || 0) * (item.qty || 1);
+            });
+        });
+
+        const rows = Object.values(productSales)
+            .sort((a, b) => b.qty - a.qty)
+            .map((p, i) => ({
+                'Rang': i + 1,
+                'Article': p.name,
+                'Quantite vendue': p.qty,
+                'Chiffre affaires (€)': p.revenue.toFixed(2),
+                'Prix moyen (€)': (p.revenue / p.qty).toFixed(2)
+            }));
+
+        const ws = XLSX.utils.json_to_sheet(rows);
+        ws['!cols'] = [{ wch: 6 }, { wch: 35 }, { wch: 18 }, { wch: 22 }, { wch: 16 }];
+        XLSX.utils.book_append_sheet(wb, ws, 'Ventes par article');
+    }
+
+    // Feuille récap dans les deux cas
+    const ca = filtered.reduce((s, o) => s + parseFloat(o.total || 0), 0);
+    const recap = [
+        { 'Indicateur': 'Période', 'Valeur': periodLabel },
+        { 'Indicateur': 'Date export', 'Valeur': dateStr },
+        { 'Indicateur': 'Nombre de commandes', 'Valeur': filtered.length },
+        { 'Indicateur': 'Chiffre d affaires', 'Valeur': ca.toFixed(2) + ' €' },
+        { 'Indicateur': 'Panier moyen', 'Valeur': (filtered.length > 0 ? ca / filtered.length : 0).toFixed(2) + ' €' },
+    ];
+    const wsRecap = XLSX.utils.json_to_sheet(recap);
+    wsRecap['!cols'] = [{ wch: 25 }, { wch: 20 }];
+    XLSX.utils.book_append_sheet(wb, wsRecap, 'Récapitulatif');
+
+    const filename = 'bistrot-des-halles-' + (type === 'orders' ? 'commandes' : 'ventes') + '-' + periodLabel + '-' + dateStr + '.xlsx';
+    XLSX.writeFile(wb, filename);
+    showToast('Export Excel téléchargé ✅');
 }
 
 const BASE_URL = 'https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html';
