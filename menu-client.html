@@ -45,6 +45,16 @@
         .btn-add:active { transform: scale(0.95); }
         .product-badge { position: absolute; top: -7px; right: -7px; background: #f59e0b; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 0.65rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 
+        /* SUGGESTIONS */
+        .suggestions-bar { background: white; border-top: 1px solid #e5d9c8; padding: 10px 16px; display: none; }
+        .suggestions-bar.show { display: block; }
+        .suggestions-title { font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 8px; }
+        .suggestions-list { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding-bottom: 4px; }
+        .suggestions-list::-webkit-scrollbar { display: none; }
+        .suggestion-chip { background: #fff8f0; border: 1px solid #b2a48f; border-radius: 20px; padding: 6px 12px; font-size: 0.75rem; white-space: nowrap; cursor: pointer; display: flex; align-items: center; gap: 6px; flex-shrink: 0; transition: background 0.15s; }
+        .suggestion-chip:hover { background: #f5ede0; }
+        .suggestion-chip strong { color: var(--burgundy); }
+
         /* POPUP SÉLECTION */
         .popup-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 500; display: flex; align-items: flex-end; justify-content: center; animation: fadeIn 0.2s; }
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
@@ -263,6 +273,12 @@
         </div>
         <button class="btn-new-order" onclick="resetOrder()">+ Nouvelle commande</button>
     </div>
+</div>
+
+<!-- SUGGESTIONS -->
+<div class="suggestions-bar" id="suggestions-bar">
+    <div class="suggestions-title">💡 Les clients aiment aussi</div>
+    <div class="suggestions-list" id="suggestions-list"></div>
 </div>
 
 <!-- BOUTON PANIER FLOTTANT -->
@@ -617,6 +633,84 @@ function confirmPopupAdd() {
     document.getElementById('product-popup').style.display = 'none';
     updateCartUI();
     updateProductBadges();
+    showSuggestions(popupProductId);
+}
+
+async function showSuggestions(productId) {
+    const bar = document.getElementById('suggestions-bar');
+    const list = document.getElementById('suggestions-list');
+    if (!bar || !list) return;
+
+    try {
+        // Chercher les commandes contenant ce produit
+        const prod = appState.products.find(p => p.id === productId);
+        if (!prod) return;
+
+        const { data: orders } = await db.from('orders')
+            .select('items')
+            .not('items', 'is', null)
+            .limit(100);
+
+        if (!orders || !orders.length) return;
+
+        // Compter les co-occurrences
+        const coCount = {};
+        orders.forEach(o => {
+            const items = o.items || [];
+            const hasProduct = items.some(i => i.productId === productId || i.name === prod.name);
+            if (hasProduct) {
+                items.forEach(i => {
+                    if (i.productId !== productId && i.name !== prod.name) {
+                        const key = i.productId || i.name;
+                        coCount[key] = (coCount[key] || 0) + (i.qty || 1);
+                    }
+                });
+            }
+        });
+
+        // Trier et filtrer les suggestions
+        let suggestions = Object.entries(coCount)
+            .sort((a, b) => b[1] - a[1])
+            .slice(0, 5)
+            .map(([key, count]) => {
+                const p = appState.products.find(x => x.id === key || x.name === key);
+                return p && !p.isHidden && !cart[p.id] ? { ...p, coCount: count } : null;
+            })
+            .filter(Boolean);
+
+        // Si pas assez de données historiques, suggérer les plus vendus de la même catégorie
+        if (suggestions.length < 3) {
+            const catProds = appState.products.filter(p =>
+                p.catId === prod.catId && p.id !== productId && !p.isHidden && !cart[p.id]
+            ).slice(0, 3 - suggestions.length);
+            suggestions = [...suggestions, ...catProds.map(p => ({ ...p, coCount: 0 }))];
+        }
+
+        if (!suggestions.length) { bar.classList.remove('show'); return; }
+
+        list.innerHTML = '';
+        suggestions.forEach(p => {
+            const chip = document.createElement('div');
+            chip.className = 'suggestion-chip';
+            chip.innerHTML = p.name + ' <strong>' + parseFloat(p.price).toFixed(2) + '€</strong>';
+            chip.onclick = () => {
+                popupProductId = p.id;
+                popupQty = 1;
+                document.getElementById('popup-name').textContent = p.name;
+                document.getElementById('popup-desc').textContent = p.desc;
+                document.getElementById('popup-qty').textContent = 1;
+                document.getElementById('popup-total').textContent = parseFloat(p.price).toFixed(2) + '€';
+                document.getElementById('product-popup').style.display = 'flex';
+            };
+            list.appendChild(chip);
+        });
+
+        bar.classList.add('show');
+        setTimeout(() => bar.classList.remove('show'), 15000);
+
+    } catch(e) {
+        console.warn('suggestions error', e);
+    }
 }
 
 function changeQty(id, delta) {
