@@ -218,21 +218,24 @@
         <span class="cart-modal-title">🛒 Mon panier</span>
         <button class="cart-close" onclick="closeCart()">✕</button>
     </div>
-    <div class="client-fields">
-        <div class="client-field">
-            <label>📍 Table</label>
-            <select id="table-number">
-                <option value="">-- Table --</option>
-                <option>Table 1</option><option>Table 2</option><option>Table 3</option>
-                <option>Table 4</option><option>Table 5</option><option>Table 6</option>
-                <option>Table 7</option><option>Table 8</option><option>Bar</option>
-                <option>Terrasse</option>
-            </select>
-        </div>
-        <div class="client-field">
-            <label>👤 Nom (optionnel)</label>
-            <input type="text" id="client-name" placeholder="Ex: Marie">
-        </div>
+    <!-- TABLE : affichage auto si QR, sinon sélection -->
+    <div id="table-auto-display" style="display:none;background:#fff8f0;border:1px solid #b2a48f;border-radius:8px;padding:10px;margin-bottom:12px;text-align:center;">
+        <span style="font-size:0.78rem;color:#6b7280;">📍 Table détectée automatiquement</span>
+        <div id="table-auto-name" style="font-family:'Playfair Display',serif;color:#601424;font-size:1.1rem;font-weight:700;"></div>
+    </div>
+    <div id="table-manual-select" style="margin-bottom:12px;">
+        <label style="display:block;font-size:0.78rem;font-weight:700;color:#6b7280;margin-bottom:4px;">📍 Votre table</label>
+        <select id="table-number" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:0.9rem;font-family:inherit;">
+            <option value="">-- Sélectionnez votre table --</option>
+            <option>Table 1</option><option>Table 2</option><option>Table 3</option>
+            <option>Table 4</option><option>Table 5</option><option>Table 6</option>
+            <option>Table 7</option><option>Table 8</option><option>Bar</option>
+            <option>Terrasse</option>
+        </select>
+    </div>
+    <div style="margin-bottom:12px;">
+        <label style="display:block;font-size:0.78rem;font-weight:700;color:#6b7280;margin-bottom:4px;">👤 Votre prénom (optionnel)</label>
+        <input type="text" id="client-name" placeholder="Ex: Marie" style="width:100%;padding:10px;border:1px solid #d1d5db;border-radius:8px;font-size:0.9rem;font-family:inherit;">
     </div>
     <div id="cart-lines"></div>
     <div class="cart-total-row"><span>Total</span><span id="cart-grand-total">0.00€</span></div>
@@ -532,26 +535,25 @@ function updateCartUI() {
     }
 }
 
-function setDetectedTable() {
-    const detected = window._detectedTable;
-    if (!detected) return;
-    const sel = document.getElementById('table-number');
-    if (!sel) return;
-    // Chercher option existante
-    for (let opt of sel.options) {
-        if (opt.value === detected) { sel.value = detected; return; }
-    }
-    // Créer l'option si pas trouvée
-    const opt = document.createElement('option');
-    opt.value = detected; opt.textContent = detected;
-    sel.appendChild(opt);
-    sel.value = detected;
-}
-
 function openCart() {
     document.getElementById('cart-modal').classList.add('open');
     document.getElementById('cart-overlay').classList.add('open');
-    setDetectedTable();
+
+    const detected = window._detectedTable;
+    const autoDisplay = document.getElementById('table-auto-display');
+    const manualSelect = document.getElementById('table-manual-select');
+    const autoName = document.getElementById('table-auto-name');
+
+    if (detected) {
+        // Mode automatique : afficher le nom, cacher le select
+        autoDisplay.style.display = 'block';
+        manualSelect.style.display = 'none';
+        autoName.textContent = detected;
+    } else {
+        // Mode manuel : cacher l'auto, afficher le select
+        autoDisplay.style.display = 'none';
+        manualSelect.style.display = 'block';
+    }
 }
 
 function closeCart() {
@@ -575,7 +577,8 @@ function updateProductBadges() {
 }
 
 async function sendOrder() {
-    const table = document.getElementById('table-number').value;
+    const detected = window._detectedTable;
+    const table = detected || document.getElementById('table-number').value;
     if (!table) return alert('Veuillez sélectionner votre numéro de table.');
     const clientName = document.getElementById('client-name').value.trim();
     const items = Object.entries(cart);
@@ -617,6 +620,8 @@ async function sendOrder() {
     sessionStorage.setItem('order_history', JSON.stringify(hist));
 
     document.getElementById('menu-items').style.display = 'none';
+    document.getElementById('menu-switcher').style.display = 'none';
+    document.getElementById('cat-nav').style.display = 'none';
     closeCart();
     document.getElementById('order-confirm').classList.add('show');
     renderOrderHistory();
@@ -628,7 +633,12 @@ async function sendOrder() {
 }
 
 function resetOrder() {
-    openMenu(currentMenuId);
+    document.getElementById('menu-switcher').style.display = 'flex';
+    document.getElementById('cat-nav').style.display = 'flex';
+    document.getElementById('menu-items').style.display = 'block';
+    document.getElementById('order-confirm').classList.remove('show');
+    cart = {};
+    updateCartUI();
 }
 
 function renderOrderHistory() {
