@@ -1440,106 +1440,104 @@ function generateAllTableQR() {
     const grid = document.getElementById('table-qr-grid');
     if (!grid) return;
     grid.innerHTML = '';
-    TABLES.forEach(table => {
+
+    TABLES.forEach((table, idx) => {
         const url = BASE_URL + '?table=' + encodeURIComponent(table);
         const cell = document.createElement('div');
         cell.style.cssText = 'background:white;border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;';
 
-        // QR wrap temporaire
-        const qrWrap = document.createElement('div');
-        qrWrap.style.display = 'inline-block';
-        cell.appendChild(qrWrap);
+        const finalCanvas = document.createElement('canvas');
+        finalCanvas.width = 200; finalCanvas.height = 270;
+        finalCanvas.style.cssText = 'display:block;margin:0 auto 8px;border-radius:8px;';
+        cell.appendChild(finalCanvas);
 
-        // Bouton télécharger (canvas combiné)
         const dlBtn = document.createElement('button');
-        dlBtn.style.cssText = 'margin-top:8px;background:var(--success);color:white;border:none;padding:6px 10px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;width:100%;';
+        dlBtn.style.cssText = 'background:var(--success);color:white;border:none;padding:6px 10px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;width:100%;';
         dlBtn.textContent = '⬇️ Télécharger';
+        dlBtn.onclick = () => {
+            const a = document.createElement('a');
+            a.href = finalCanvas.toDataURL('image/png');
+            a.download = 'qr-' + table.replace(/ /g, '-') + '.png';
+            a.click();
+        };
         cell.appendChild(dlBtn);
         grid.appendChild(cell);
 
-        // Générer QR puis composer canvas final
-        new QRCode(qrWrap, { text: url, width: 130, height: 130, colorDark: '#601424', colorLight: '#ede2cf', correctLevel: QRCode.CorrectLevel.H });
+        // Générer QR dans div cachée puis composer
+        const hiddenDiv = document.createElement('div');
+        hiddenDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
+        document.body.appendChild(hiddenDiv);
 
-        // Attendre que le QR soit généré puis composer le canvas
-        function composeQR(table, qrWrap, dlBtn) {
-            const qrCanvas = qrWrap.querySelector('canvas');
-            const qrImg = qrWrap.querySelector('img');
-            const source = qrCanvas || qrImg;
-            if (!source) { setTimeout(() => composeQR(table, qrWrap, dlBtn), 100); return; }
+        new QRCode(hiddenDiv, {
+            text: url, width: 145, height: 145,
+            colorDark: '#601424', colorLight: '#ede2cf',
+            correctLevel: QRCode.CorrectLevel.H
+        });
 
+        // Attendre puis composer
+        setTimeout(() => {
+            const ctx = finalCanvas.getContext('2d');
             const W = 200, H = 270;
-            const canvas = document.createElement('canvas');
-            canvas.width = W; canvas.height = H;
-            const ctx = canvas.getContext('2d');
 
-            function draw(src) {
-                // Fond crème
-                ctx.fillStyle = '#ede2cf';
-                ctx.fillRect(0, 0, W, H);
+            ctx.fillStyle = '#ede2cf';
+            ctx.fillRect(0, 0, W, H);
+            ctx.strokeStyle = '#601424';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(2, 2, W-4, H-4, 10);
+            ctx.stroke();
 
-                // Bordure
-                ctx.strokeStyle = '#601424';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.roundRect(2, 2, W-4, H-4, 10);
-                ctx.stroke();
+            ctx.fillStyle = '#601424';
+            ctx.beginPath();
+            ctx.arc(W/2, 32, 22, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#ede2cf';
+            ctx.font = 'bold 14px Georgia';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('BH', W/2, 32);
 
-                // Logo BH
-                ctx.fillStyle = '#601424';
-                ctx.beginPath();
-                ctx.arc(W/2, 32, 22, 0, Math.PI*2);
-                ctx.fill();
-                ctx.fillStyle = '#ede2cf';
-                ctx.font = 'bold 14px Georgia';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText('BH', W/2, 32);
-
-                // QR
-                ctx.drawImage(src, (W-145)/2, 58, 145, 145);
-
-                // Ligne
-                ctx.strokeStyle = '#b2a48f';
-                ctx.lineWidth = 1;
-                ctx.beginPath();
-                ctx.moveTo(20, 212); ctx.lineTo(W-20, 212);
-                ctx.stroke();
-
-                // Nom table
-                ctx.fillStyle = '#601424';
-                ctx.font = 'bold 16px Georgia';
-                ctx.textAlign = 'center';
-                ctx.textBaseline = 'middle';
-                ctx.fillText(table, W/2, 228);
-
-                // Sous-titre
-                ctx.fillStyle = '#b2a48f';
-                ctx.font = '9px Georgia';
-                ctx.fillText('Le Bistrot des Halles — Versailles', W/2, 252);
-
-                canvas.style.cssText = 'display:block;margin:0 auto;border-radius:8px;';
-                qrWrap.innerHTML = '';
-                qrWrap.appendChild(canvas);
-
-                dlBtn.onclick = () => {
-                    const a = document.createElement('a');
-                    a.href = canvas.toDataURL('image/png');
-                    a.download = 'qr-' + table.replace(/ /g, '-') + '.png';
-                    a.click();
-                };
-            }
-
+            const qrCanvas = hiddenDiv.querySelector('canvas');
             if (qrCanvas) {
-                draw(qrCanvas);
-            } else if (qrImg && qrImg.complete) {
-                draw(qrImg);
-            } else if (qrImg) {
-                qrImg.onload = () => draw(qrImg);
+                ctx.drawImage(qrCanvas, (W-145)/2, 58, 145, 145);
+            } else {
+                const qrImg = hiddenDiv.querySelector('img');
+                if (qrImg && qrImg.complete && qrImg.naturalWidth > 0) {
+                    ctx.drawImage(qrImg, (W-145)/2, 58, 145, 145);
+                } else if (qrImg) {
+                    qrImg.onload = () => {
+                        ctx.drawImage(qrImg, (W-145)/2, 58, 145, 145);
+                        drawText(ctx, table, W, H);
+                        document.body.removeChild(hiddenDiv);
+                    };
+                    return;
+                }
             }
-        }
-        setTimeout(() => composeQR(table, qrWrap, dlBtn), 500);
+
+            drawText(ctx, table, W, H);
+            document.body.removeChild(hiddenDiv);
+        }, 600 + idx * 100);
     });
 }
+
+function drawText(ctx, table, W, H) {
+    ctx.strokeStyle = '#b2a48f';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(20, 212); ctx.lineTo(W-20, 212);
+    ctx.stroke();
+
+    ctx.fillStyle = '#601424';
+    ctx.font = 'bold 16px Georgia';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(table, W/2, 228);
+
+    ctx.fillStyle = '#b2a48f';
+    ctx.font = '9px Georgia';
+    ctx.fillText('Le Bistrot des Halles — Versailles', W/2, 252);
+}
+
 
 function generateQRCode() {
     const url = document.getElementById('qr-url-input').value.trim();
