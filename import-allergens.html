@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Import Allergènes</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body { font-family: Arial, sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; background: #f3f4f6; }
+.box { background: white; padding: 40px; border-radius: 16px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 420px; }
+h2 { color: #601424; margin-bottom: 10px; }
+p { color: #6b7280; margin-bottom: 24px; font-size: 0.9rem; }
+button { background: #601424; color: white; border: none; padding: 14px 32px; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; width: 100%; }
+.result { margin-top: 20px; padding: 14px; border-radius: 8px; font-weight: 600; display: none; font-size: 0.88rem; }
+.ok { background: #d1fae5; color: #065f46; }
+.err { background: #fee2e2; color: #991b1b; }
+</style>
+</head>
+<body>
+<div class="box">
+    <h2>⚠️ Import Allergènes</h2>
+    <p>Importe les allergènes détectés automatiquement sur les 47 articles concernés.</p>
+    <button onclick="importAllergens()">⬆️ Importer les allergènes</button>
+    <div class="result" id="result"></div>
+</div>
+<script>
+const db = supabase.createClient(
+    'https://mvxqpysdbngyazzzdbkc.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHFweXNkYm5neWF6enpkYmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTgyNzgsImV4cCI6MjA5NjkzNDI3OH0.Y0v4pHdGHF6oGMP4AbTyMjIAZLJk-S7iWL0p_SaRJAs'
+);
+
+const ALLERGENS = {"p_vr1": ["sulfites"], "p_vr2": ["sulfites"], "p_vr3": ["sulfites"], "p_vr4": ["sulfites"], "p_vb1": ["sulfites"], "p_vb2": ["sulfites"], "p_vb3": ["sulfites"], "p_vb4": ["sulfites"], "p_vb5": ["sulfites"], "p_vb6": ["sulfites"], "p_vb7": ["sulfites"], "p_vb8": ["sulfites"], "p_vb9": ["sulfites"], "p_vb10": ["sulfites"], "p_vb11": ["sulfites"], "p_vb12": ["sulfites"], "p_vb13": ["sulfites"], "p_ro1": ["sulfites"], "p_ro2": ["sulfites"], "p_ro3": ["sulfites"], "p_ch1": ["sulfites"], "p_bo1": ["sulfites"], "p_bo2": ["sulfites"], "p_bo3": ["sulfites"], "p_ap1": ["sulfites"], "p_ap4": ["sulfites"], "p_ap5": ["sulfites"], "p_co2": ["sulfites"], "p_bc1": ["lactose"], "p_bc2": ["lactose"], "p_bc3": ["lactose"], "p_bc4": ["lactose"], "p_bc5": ["lactose"], "p_bc6": ["lactose"], "p_bc7": ["lactose", "gluten"], "p_bc8": ["lactose"], "p_sh3": ["lactose"], "p_sh5": ["lactose"], "p_bb1": ["gluten"], "p_bb2": ["gluten"], "p_bb3": ["gluten"], "p_bb4": ["gluten"], "p_bb5": ["gluten"], "p_bp1": ["gluten"], "p_bp2": ["gluten"], "p_bp3": ["gluten"], "p_bp4": ["gluten"]};
+
+async function importAllergens() {
+    const btn = document.querySelector('button');
+    const result = document.getElementById('result');
+    btn.textContent = 'Import en cours...';
+    btn.disabled = true;
+
+    try {
+        // Charger l'état actuel
+        const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
+        if (error || !data) throw new Error('Impossible de charger la carte');
+
+        const state = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+
+        // Mettre à jour les allergènes de chaque produit
+        let updated = 0;
+        state.products = state.products.map(p => {
+            if (ALLERGENS[p.id]) {
+                updated++;
+                return { ...p, allergens: ALLERGENS[p.id] };
+            }
+            return { ...p, allergens: p.allergens || [] };
+        });
+
+        // Sauvegarder
+        const { error: saveError } = await db.from('state').update({ value: JSON.stringify(state) }).eq('key', 'app_state');
+        if (saveError) throw saveError;
+
+        result.className = 'result ok';
+        result.textContent = '✅ ' + updated + ' articles mis à jour avec leurs allergènes.';
+        result.style.display = 'block';
+        btn.textContent = '✅ Importé !';
+    } catch(e) {
+        result.className = 'result err';
+        result.textContent = '❌ Erreur : ' + e.message;
+        result.style.display = 'block';
+        btn.textContent = 'Réessayer';
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>
