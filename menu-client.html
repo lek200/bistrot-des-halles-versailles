@@ -63,20 +63,26 @@
 
 
         /* PANIER */
-        .cart-bar { background: var(--burgundy); color: white; padding: 14px 18px; display: flex; align-items: center; justify-content: space-between; position: fixed; bottom: 0; left: 0; right: 0; cursor: pointer; z-index: 100; }
-        .cart-bar-label { font-size: 0.88rem; font-weight: 700; }
-        .cart-right { display: flex; align-items: center; gap: 10px; }
-        .cart-total-label { font-size: 0.88rem; font-weight: 700; }
-        .cart-badge { background: white; color: var(--burgundy); border-radius: 50%; width: 24px; height: 24px; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 800; }
-        .cart-panel { background: white; padding: 16px; display: none; border-top: 2px solid var(--burgundy); max-height: 60vh; overflow-y: auto; position: fixed; bottom: 56px; left: 0; right: 0; z-index: 99; box-shadow: 0 -4px 20px rgba(0,0,0,0.15); }
-        .cart-panel.open { display: block; }
-        .cart-line { display: flex; justify-content: space-between; align-items: center; padding: 8px 0; border-bottom: 1px dashed #e5e0d8; font-size: 0.88rem; }
-        .cart-line-name { flex: 1; }
+        /* PANIER MODAL */
+        .cart-fab { position: fixed; bottom: 20px; right: 20px; background: var(--burgundy); color: white; border: none; border-radius: 50px; padding: 12px 20px; font-weight: 700; font-size: 0.88rem; cursor: pointer; box-shadow: 0 4px 15px rgba(96,20,36,0.4); display: none; z-index: 200; }
+        .cart-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 300; display: none; }
+        .cart-overlay.open { display: block; }
+        .cart-modal { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 20px 20px 0 0; padding: 20px; z-index: 301; max-height: 80vh; overflow-y: auto; transform: translateY(100%); transition: transform 0.3s ease; }
+        .cart-modal.open { transform: translateY(0); }
+        .cart-modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+        .cart-modal-title { font-family: 'Playfair Display', serif; color: var(--burgundy); font-size: 1.2rem; font-weight: 700; }
+        .cart-close { background: #f3f4f6; border: none; width: 32px; height: 32px; border-radius: 50%; cursor: pointer; font-size: 1.1rem; }
+        .cart-line { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px dashed #e5e0d8; font-size: 0.88rem; gap: 8px; }
+        .cart-line-name { flex: 1; font-weight: 600; }
         .cart-qty-ctrl { display: flex; align-items: center; gap: 8px; }
-        .btn-qty { background: #f3f4f6; border: 1px solid #d1d5db; width: 26px; height: 26px; border-radius: 4px; cursor: pointer; font-size: 0.9rem; font-weight: 700; }
-        .cart-total-row { display: flex; justify-content: space-between; font-weight: 800; padding-top: 12px; color: var(--burgundy); font-size: 1rem; }
-        .btn-send { width: 100%; margin-top: 12px; background: #10b981; color: white; border: none; padding: 14px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
+        .btn-qty { background: #f3f4f6; border: 1px solid #d1d5db; width: 28px; height: 28px; border-radius: 50%; cursor: pointer; font-size: 0.9rem; font-weight: 700; }
+        .cart-total-row { display: flex; justify-content: space-between; font-weight: 800; padding-top: 14px; color: var(--burgundy); font-size: 1.1rem; margin-bottom: 14px; }
+        .btn-send { width: 100%; background: #10b981; color: white; border: none; padding: 14px; border-radius: 10px; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
         .btn-send:disabled { background: #9ca3af; cursor: not-allowed; }
+        /* CLIENT NAME */
+        .client-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 14px; }
+        .client-field label { display: block; font-size: 0.78rem; font-weight: 700; color: #6b7280; margin-bottom: 4px; }
+        .client-field input, .client-field select { width: 100%; padding: 10px; border: 1px solid #d1d5db; border-radius: 8px; font-size: 0.9rem; font-family: inherit; }
 
         /* NAV CATÉGORIES STICKY */
         .cat-nav { position: sticky; top: 56px; z-index: 50; background: white; border-bottom: 1px solid #e5e0d8; padding: 10px 16px; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; }
@@ -184,25 +190,55 @@
         <div class="confirm-icon">✅</div>
         <h2>Commande envoyée !</h2>
         <p>Le bar a bien reçu votre commande.</p>
-        <div style="background:#fff8f0;border:2px solid #b2a48f;border-radius:12px;padding:16px;margin:16px 0;text-align:center;">
+        <div style="background:#fff8f0;border:2px solid #b2a48f;border-radius:12px;padding:14px;margin:14px 0;text-align:center;">
             <div style="font-size:0.82rem;color:#6b7280;margin-bottom:4px;">⏱ Temps estimé</div>
-            <div id="eta-text" style="font-family:'Playfair Display',serif;font-size:1.6rem;font-weight:700;color:#601424;">~10-15 minutes</div>
-            <div style="font-size:0.75rem;color:#9ca3af;margin-top:4px;">Estimation basée sur les commandes en cours</div>
+            <div id="eta-text" style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:#601424;">~10-15 minutes</div>
         </div>
-        <button class="btn-new-order" onclick="resetOrder()">Nouvelle commande</button>
+        <!-- HISTORIQUE SESSION -->
+        <div id="order-history-wrap" style="width:100%;margin-bottom:14px;display:none;">
+            <div style="font-family:'Playfair Display',serif;color:#601424;font-weight:700;font-size:1rem;margin-bottom:8px;text-align:left;">📋 Vos commandes ce soir</div>
+            <div id="order-history-list" style="width:100%;"></div>
+        </div>
+        <button class="btn-new-order" onclick="resetOrder()">+ Nouvelle commande</button>
     </div>
-    <div class="cart-panel" id="cart-panel">
-        <div id="cart-lines"></div>
-        <div class="cart-total-row"><span>Total</span><span id="cart-grand-total">0.00€</span></div>
-        <button class="btn-send" id="btn-send" onclick="sendOrder()">✅ Envoyer la commande</button>
+</div>
+
+<!-- BOUTON PANIER FLOTTANT -->
+<button class="cart-fab" id="cart-fab" onclick="openCart()">
+    🛒 Panier · <span id="cart-total-label">0.00€</span>
+    <span id="cart-count" style="background:white;color:var(--burgundy);border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:0.75rem;font-weight:800;margin-left:6px;">0</span>
+</button>
+
+<!-- OVERLAY -->
+<div class="cart-overlay" id="cart-overlay" onclick="closeCart()"></div>
+
+<!-- MODAL PANIER -->
+<div class="cart-modal" id="cart-modal">
+    <div class="cart-modal-header">
+        <span class="cart-modal-title">🛒 Mon panier</span>
+        <button class="cart-close" onclick="closeCart()">✕</button>
     </div>
-    <div class="cart-bar" onclick="toggleCart()" id="cart-bar">
-        <span class="cart-bar-label">🛒 Mon panier</span>
-        <div class="cart-right">
-            <span class="cart-total-label" id="cart-total-label">0.00€</span>
-            <div class="cart-badge" id="cart-count">0</div>
+    <div class="client-fields">
+        <div class="client-field">
+            <label>📍 Table</label>
+            <select id="table-number">
+                <option value="">-- Table --</option>
+                <option>Table 1</option><option>Table 2</option><option>Table 3</option>
+                <option>Table 4</option><option>Table 5</option><option>Table 6</option>
+                <option>Table 7</option><option>Table 8</option><option>Bar</option>
+                <option>Terrasse</option>
+            </select>
+        </div>
+        <div class="client-field">
+            <label>👤 Nom (optionnel)</label>
+            <input type="text" id="client-name" placeholder="Ex: Marie">
         </div>
     </div>
+    <div id="cart-lines"></div>
+    <div class="cart-total-row"><span>Total</span><span id="cart-grand-total">0.00€</span></div>
+    <button class="btn-send" id="btn-send" onclick="sendOrder()">✅ Envoyer la commande</button>
+</div>
+
 </div>
 
 <!-- POPUP SÉLECTION PRODUIT -->
@@ -286,10 +322,28 @@ function openMenu(menuId) {
     document.getElementById('menu-title').textContent = appState.menus.find(m => m.id === menuId)?.name || '';
     document.getElementById('order-confirm').classList.remove('show');
     document.getElementById('menu-items').style.display = 'block';
-    document.getElementById('cart-bar').style.display = 'flex';
     renderMenuSwitcher(menuId);
     renderMenu(menuId);
     updateCartUI();
+
+    // Détecter table depuis URL ?table=Table1
+    const params = new URLSearchParams(window.location.search);
+    const tableParam = params.get('table');
+    if (tableParam) {
+        const sel = document.getElementById('table-number');
+        if (sel) {
+            // Chercher option existante ou créer
+            let found = false;
+            for (let opt of sel.options) {
+                if (opt.value === tableParam) { sel.value = tableParam; found = true; break; }
+            }
+            if (!found) {
+                const opt = document.createElement('option');
+                opt.value = tableParam; opt.textContent = tableParam;
+                sel.appendChild(opt); sel.value = tableParam;
+            }
+        }
+    }
 }
 
 function renderMenuSwitcher(activeMenuId) {
@@ -463,6 +517,10 @@ function updateCartUI() {
     document.getElementById('cart-total-label').textContent = total.toFixed(2) + '€';
     document.getElementById('cart-grand-total').textContent = total.toFixed(2) + '€';
 
+    // FAB
+    const fab = document.getElementById('cart-fab');
+    if (fab) fab.style.display = count > 0 ? 'flex' : 'none';
+
     const lines = document.getElementById('cart-lines');
     lines.innerHTML = '';
     if (!items.length) {
@@ -485,13 +543,14 @@ function updateCartUI() {
     }
 }
 
-function toggleCart() {
-    document.getElementById('cart-panel').classList.toggle('open');
+function openCart() {
+    document.getElementById('cart-modal').classList.add('open');
+    document.getElementById('cart-overlay').classList.add('open');
 }
 
-function openCartPanel() {
-    document.getElementById('cart-panel').classList.add('open');
-    document.getElementById('cart-panel').scrollIntoView({ behavior: 'smooth' });
+function closeCart() {
+    document.getElementById('cart-modal').classList.remove('open');
+    document.getElementById('cart-overlay').classList.remove('open');
 }
 
 function updateProductBadges() {
@@ -512,6 +571,7 @@ function updateProductBadges() {
 async function sendOrder() {
     const table = document.getElementById('table-number').value;
     if (!table) return alert('Veuillez sélectionner votre numéro de table.');
+    const clientName = document.getElementById('client-name').value.trim();
     const items = Object.entries(cart);
     if (!items.length) return alert('Votre panier est vide.');
 
@@ -525,9 +585,10 @@ async function sendOrder() {
     });
 
     const total = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
+    const tableLabel = clientName ? table + ' — ' + clientName : table;
 
     await db.from('orders').insert({
-        table_number: table,
+        table_number: tableLabel,
         items: orderItems,
         total: total,
         status: 'pending',
@@ -543,10 +604,16 @@ async function sendOrder() {
 
     // Afficher confirmation avec ETA
     document.getElementById('eta-text').textContent = `~${etaMin}-${etaMax} minutes`;
+    // Historique session
+    const histEntry = { time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), table: tableLabel, items: orderItems, total: total };
+    const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
+    hist.push(histEntry);
+    sessionStorage.setItem('order_history', JSON.stringify(hist));
+
     document.getElementById('menu-items').style.display = 'none';
-    document.getElementById('cart-panel').classList.remove('open');
-    document.getElementById('cart-bar').style.display = 'none';
+    closeCart();
     document.getElementById('order-confirm').classList.add('show');
+    renderOrderHistory();
 
     btn.disabled = false;
     btn.textContent = '✅ Envoyer la commande';
@@ -556,6 +623,33 @@ async function sendOrder() {
 
 function resetOrder() {
     openMenu(currentMenuId);
+}
+
+function renderOrderHistory() {
+    const wrap = document.getElementById('order-history-wrap');
+    const list = document.getElementById('order-history-list');
+    if (!wrap || !list) return;
+    const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
+    if (!hist.length) { wrap.style.display = 'none'; return; }
+    wrap.style.display = 'block';
+    list.innerHTML = '';
+    let grandTotal = 0;
+    hist.forEach((entry, i) => {
+        grandTotal += entry.total;
+        const div = document.createElement('div');
+        div.style.cssText = 'background:#fff8f0;border:1px solid #e5d9c8;border-radius:8px;padding:10px;margin-bottom:8px;text-align:left;';
+        const itemsStr = entry.items.map(it => it.qty + '× ' + it.name).join(', ');
+        div.innerHTML = '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:0.85rem;color:#601424;">'
+            + '<span>Commande ' + (i+1) + ' · ' + entry.time + '</span>'
+            + '<span>' + entry.total.toFixed(2) + '€</span></div>'
+            + '<div style="font-size:0.78rem;color:#6b7280;margin-top:3px;">' + entry.table + '</div>'
+            + '<div style="font-size:0.8rem;margin-top:4px;">' + itemsStr + '</div>';
+        list.appendChild(div);
+    });
+    if (hist.length > 1) {
+        list.innerHTML += '<div style="display:flex;justify-content:space-between;font-weight:800;padding:8px 0;border-top:2px solid #601424;color:#601424;font-size:0.95rem;">'
+            + '<span>Total de la soirée</span><span>' + grandTotal.toFixed(2) + '€</span></div>';
+    }
 }
 
 init();
