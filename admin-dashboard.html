@@ -109,6 +109,14 @@
         .btn-icon { background: none; border: none; cursor: pointer; font-size: 0.95rem; padding: 3px; border-radius: 4px; }
         .inline-edit-form { display: none; background: #f9fafb; border-top: 1px solid var(--border); padding: 10px 12px; gap: 6px; flex-wrap: wrap; }
         .inline-edit-form.open { display: flex; }
+
+        /* UNSPLASH PHOTO PICKER */
+        .photo-picker { width:100%; margin-top:6px; }
+        .photo-picker-btn { background:#374151; color:white; border:none; padding:6px 12px; border-radius:6px; font-size:0.75rem; font-weight:700; cursor:pointer; }
+        .photo-grid { display:grid; grid-template-columns:repeat(4,1fr); gap:4px; margin-top:8px; max-height:160px; overflow-y:auto; }
+        .photo-grid img { width:100%; aspect-ratio:1; object-fit:cover; border-radius:4px; cursor:pointer; border:2px solid transparent; transition:all 0.15s; }
+        .photo-grid img:hover, .photo-grid img.selected { border-color:var(--burgundy); transform:scale(1.03); }
+        .photo-loading { font-size:0.75rem; color:var(--muted); padding:8px; text-align:center; }
         .inline-edit-form input { padding: 6px 8px; border: 1px solid #d1d5db; border-radius: 5px; font-size: 0.8rem; font-family: inherit; outline: none; }
         .btn-save-inline { background: var(--success); color: white; border: none; padding: 6px 10px; border-radius: 5px; font-size: 0.78rem; font-weight: 700; cursor: pointer; }
         .btn-cancel-inline { background: #e5e7eb; color: #374151; border: none; padding: 6px 8px; border-radius: 5px; font-size: 0.78rem; cursor: pointer; }
@@ -387,8 +395,12 @@
                 </div>
                 <div class="form-group"><input type="text" id="add-prod-desc" class="form-control" placeholder="Description, allergènes..."></div>
                 <div class="form-group">
-                    <label>📸 Photo/Vidéo (URL)</label>
-                    <input type="text" id="add-prod-media" class="form-control" placeholder="https://... (jpg/png/mp4)">
+                    <label>📸 Photo (URL ou sélection auto)</label>
+                    <div style="display:flex;gap:6px;">
+                        <input type="text" id="add-prod-media" class="form-control" placeholder="https://... ou sélectionnez ci-dessous">
+                        <button type="button" class="photo-picker-btn" onclick="searchUnsplash(document.getElementById('add-prod-name').value, 'add-prod-media', 'add-photo-grid')">🔍 Auto</button>
+                    </div>
+                    <div class="photo-grid" id="add-photo-grid"></div>
                 </div>
                 <div class="form-group">
                     <label>⚠️ Allergènes</label>
@@ -1350,7 +1362,11 @@ function renderCarteTree() {
                     <input type="text" id="pe-name-${p.id}" value="${p.name}" placeholder="Nom" style="flex:2;min-width:90px;">
                     <input type="number" id="pe-price-${p.id}" value="${p.price}" step="0.10" min="0" style="width:62px;">
                     <input type="text" id="pe-desc-${p.id}" value="${p.desc || ''}" placeholder="Description" style="flex:3;min-width:100px;">
-                    <input type="text" id="pe-media-${p.id}" value="${p.mediaUrl || ''}" placeholder="URL photo/vidéo" style="flex:3;min-width:100px;">
+                    <div style="display:flex;gap:4px;flex:3;min-width:100px;">
+                <input type="text" id="pe-media-${p.id}" value="${p.mediaUrl || ''}" placeholder="URL photo" style="flex:1;">
+                <button type="button" class="photo-picker-btn" onclick="searchUnsplash('${p.name}', 'pe-media-${p.id}', 'tree-photo-grid-${p.id}')">🔍</button>
+            </div>
+            <div class="photo-grid" id="tree-photo-grid-${p.id}" style="width:100%;"></div>
                     <button class="btn-save-inline" onclick="saveProdEdit('${p.id}')">Sauver</button>
                     <button class="btn-cancel-inline" onclick="document.getElementById('prod-edit-${p.id}').classList.remove('open')">✕</button>`;
 
@@ -1698,6 +1714,61 @@ function exportExcel(type) {
     const filename = 'bistrot-des-halles-' + (type === 'orders' ? 'commandes' : 'ventes') + '-' + periodLabel + '-' + dateStr + '.xlsx';
     XLSX.writeFile(wb, filename);
     showToast('Export Excel téléchargé ✅');
+}
+
+// ── UNSPLASH PHOTO SEARCH ──
+const UNSPLASH_KEY = 'zgw-EvOABrrk1Mw1qckNyouUui74wXK-jTt9NkrEfwE';
+
+async function searchUnsplash(query, inputId, gridId) {
+    if (!query || query.trim().length < 2) {
+        alert('Entrez d\'abord un nom d\'article.');
+        return;
+    }
+    const grid = document.getElementById(gridId);
+    if (!grid) return;
+    grid.innerHTML = '<div class="photo-loading">Recherche en cours...</div>';
+
+    // Traduire la requête en anglais pour de meilleurs résultats
+    const searchTerms = {
+        'vin': 'wine glass', 'vins': 'wine', 'rouge': 'red wine', 'blanc': 'white wine',
+        'rosé': 'rosé wine', 'champagne': 'champagne', 'bière': 'beer', 'cocktail': 'cocktail',
+        'mojito': 'mojito', 'spritz': 'aperol spritz', 'whisky': 'whisky glass',
+        'café': 'coffee', 'chocolat': 'hot chocolate', 'limonade': 'lemonade',
+        'jus': 'fruit juice', 'eau': 'water glass', 'rhum': 'rum cocktail',
+        'vodka': 'vodka', 'gin': 'gin tonic', 'martini': 'martini'
+    };
+
+    let searchQuery = query.toLowerCase();
+    for (const [fr, en] of Object.entries(searchTerms)) {
+        if (searchQuery.includes(fr)) { searchQuery = en; break; }
+    }
+    if (searchQuery === query.toLowerCase()) searchQuery = query + ' drink bar';
+
+    try {
+        const resp = await fetch(
+            `https://api.unsplash.com/search/photos?query=${encodeURIComponent(searchQuery)}&per_page=8&orientation=squarish`,
+            { headers: { Authorization: 'Client-ID ' + UNSPLASH_KEY } }
+        );
+        const data = await resp.json();
+        if (!data.results || !data.results.length) {
+            grid.innerHTML = '<div class="photo-loading">Aucune photo trouvée.</div>';
+            return;
+        }
+        grid.innerHTML = '';
+        data.results.forEach(photo => {
+            const img = document.createElement('img');
+            img.src = photo.urls.small;
+            img.title = photo.alt_description || '';
+            img.onclick = () => {
+                document.getElementById(inputId).value = photo.urls.regular;
+                grid.querySelectorAll('img').forEach(i => i.classList.remove('selected'));
+                img.classList.add('selected');
+            };
+            grid.appendChild(img);
+        });
+    } catch(e) {
+        grid.innerHTML = '<div class="photo-loading">Erreur de connexion Unsplash.</div>';
+    }
 }
 
 const BASE_URL = 'https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html';
