@@ -6,6 +6,7 @@
     <title>Le Bistrot des Halles — Dashboard Admin</title>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
         :root {
@@ -332,6 +333,16 @@
                     <div id="inactive-products" style="font-size:0.78rem;"></div>
                 </div>
             </div>
+
+            <!-- EXPORT EXCEL -->
+            <div class="card">
+                <h2>📊 Export des données</h2>
+                <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;">Exporte les commandes de la période sélectionnée en fichier Excel pour la comptabilité.</p>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn-submit" style="background:#1d6f42;flex:1;" onclick="exportExcel('orders')">📥 Commandes (.xlsx)</button>
+                    <button class="btn-submit" style="background:#1565c0;flex:1;" onclick="exportExcel('products')">📥 Ventes par article (.xlsx)</button>
+                </div>
+            </div>
         </div>
 
         <!-- CARTE -->
@@ -586,7 +597,14 @@ function subscribeToOrders() {
             const knownIds = new Set(allOrders.map(o => String(o.id)));
             const newOrders = data.filter(o => !knownIds.has(String(o.id)));
             newOrders.forEach(order => notifyNewOrder(order));
-            if (newOrders.length > 0 || data.length !== allOrders.length) {
+
+            // Détecter changements de statut
+            const statusChanged = data.some(o => {
+                const existing = allOrders.find(x => String(x.id) === String(o.id));
+                return existing && existing.status !== o.status;
+            });
+
+            if (newOrders.length > 0 || data.length !== allOrders.length || statusChanged) {
                 allOrders = data;
                 renderOrders();
                 calculateStats();
@@ -683,15 +701,27 @@ async function setOrderStatus(orderId, newStatus) {
 
 async function cancelOrder(orderId) {
     const order = allOrders.find(o => String(o.id) === String(orderId));
-    const summary = (order?.items || []).map(i => `${i.qty}× ${i.name}`).join(', ');
-    if (!confirm(`Annuler cette commande ?\n\n${summary}\n\nCette action est irréversible.`)) return;
-    const { error } = await db.from('orders').update({ status: 'cancelled' }).eq('id', orderId);
+    if (!order) { showToast('Commande introuvable', 'alert'); return; }
+    const summary = (order.items || []).map(i => i.qty + 'x ' + i.name).join(', ');
+
+    // Confirmation inline sans confirm() natif
+    if (!window._cancelConfirm) {
+        window._cancelConfirm = orderId;
+        showToast('Appuyez à nouveau sur Annuler pour confirmer', 'alert');
+        setTimeout(() => { window._cancelConfirm = null; }, 4000);
+        return;
+    }
+    window._cancelConfirm = null;
+
+    // Supprimer définitivement de la base
+    const { error } = await db.from('orders').delete().eq('id', String(orderId));
     if (!error) {
-        const o = allOrders.find(o => String(o.id) === String(orderId));
-        if (o) o.status = 'cancelled';
+        allOrders = allOrders.filter(o => String(o.id) !== String(orderId));
         renderOrders();
         calculateStats();
-        showToast('Commande annulée', 'alert');
+        showToast('Commande supprimée');
+    } else {
+        showToast('Erreur : ' + (error.message || 'impossible de supprimer'), 'alert');
     }
 }
 
@@ -1452,6 +1482,84 @@ function generatePDF() {
     window.print();
     document.body.classList.remove('printing-menu');
 }
+function exportExcel(type) {
+    const now = new Date();
+    let filtered = allOrders.filter(o => o.status !== 'cancelled');
+
+    // Appliquer la même période que les stats
+    if (appState.currentPeriod === 'today') {
+        filtered = filtered.filter(o => new Date(o.created_at).toDateString() === now.toDateString());
+    } else if (appState.currentPeriod === 'week') {
+        const week = new Date(now); week.setDate(now.getDate() - 7);
+        filtered = filtered.filter(o => new Date(o.created_at) >= week);
+    } else if (appState.currentPeriod === 'month') {
+        filtered = filtered.filter(o => {
+            const d = new Date(o.created_at);
+            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+        });
+    } else if (appState.currentPeriod === 'custom') {
+        const startEl = document.getElementById('date-start');
+        const endEl = document.getElementById('date-end');
+        if (startEl?.value) {
+            const start = new Date(startEl.value);
+            const end = endEl?.value ? new Date(endEl.value + 'T23:59:59') : now;
+            filtered = filtered.filter(o => { const d = new Date(o.created_at); return d >= start && d <= end; });
+        }
+    }
+
+    let wb, ws, filename;
+
+    if (type === 'orders') {
+        // Feuille commandes détaillées
+        const rows = [['N° Commande', 'Date', 'Heure', 'Table', 'Articles', 'Total (€)', 'Statut']];
+        filtered.forEach(o => {
+            const d = new Date(o.created_at);
+            const itemsStr = (o.items || []).map(i => i.qty + 'x ' + i.name).join(' | ');
+            const statusFr = { pending: 'En attente', preparing: 'En préparation', done: 'Effectué', paid: 'Payé', cancelled: 'Annulé' };
+            rows.push([
+                o.order_number || '-',
+                d.toLocaleDateString('fr-FR'),
+                d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}),
+                o.table_number || '-',
+                itemsStr,
+                parseFloat(o.total || 0).toFixed(2),
+                statusFr[o.status] || o.status
+            ]);
+        });
+        // Ligne total
+        const totalCA = filtered.reduce((s, o) => s + parseFloat(o.total || 0), 0);
+        rows.push(['', '', '', '', 'TOTAL', totalCA.toFixed(2), '']);
+
+        ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{wch:12},{wch:12},{wch:8},{wch:14},{wch:40},{wch:10},{wch:14}];
+        filename = 'bistrot-commandes-' + now.toISOString().split('T')[0] + '.xlsx';
+
+    } else {
+        // Feuille ventes par article
+        const counts = {};
+        filtered.forEach(o => (o.items || []).forEach(i => {
+            if (!counts[i.name]) counts[i.name] = { qty: 0, total: 0, price: i.price };
+            counts[i.name].qty += i.qty || 1;
+            counts[i.name].total += (i.price || 0) * (i.qty || 1);
+        }));
+        const rows = [['Article', 'Quantité vendue', 'Prix unitaire (€)', 'Total (€)']];
+        Object.entries(counts).sort((a, b) => b[1].qty - a[1].qty).forEach(([name, data]) => {
+            rows.push([name, data.qty, parseFloat(data.price || 0).toFixed(2), parseFloat(data.total).toFixed(2)]);
+        });
+        const grandTotal = Object.values(counts).reduce((s, d) => s + d.total, 0);
+        rows.push(['TOTAL', '', '', grandTotal.toFixed(2)]);
+
+        ws = XLSX.utils.aoa_to_sheet(rows);
+        ws['!cols'] = [{wch:35},{wch:16},{wch:18},{wch:12}];
+        filename = 'bistrot-ventes-' + now.toISOString().split('T')[0] + '.xlsx';
+    }
+
+    wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, type === 'orders' ? 'Commandes' : 'Ventes');
+    XLSX.writeFile(wb, filename);
+    showToast('Export téléchargé : ' + filename);
+}
+
 const BASE_URL = 'https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html';
 const TABLES = ['Table 1','Table 2','Table 3','Table 4','Table 5','Table 6','Table 7','Table 8','Bar','Terrasse'];
 
