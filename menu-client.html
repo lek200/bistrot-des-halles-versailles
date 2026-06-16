@@ -122,6 +122,22 @@
         .order-confirm p { color: #6b7280; font-size: 0.9rem; }
         .btn-new-order { margin-top: 24px; background: var(--burgundy); color: white; border: none; padding: 14px 28px; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; }
 
+        /* STATUT COMMANDE LIVE */
+        .order-status-tracker { width: 100%; margin: 16px 0; }
+        .status-steps { display: flex; justify-content: space-between; align-items: center; position: relative; margin: 0 10px; }
+        .status-steps::before { content: ''; position: absolute; top: 18px; left: 0; right: 0; height: 2px; background: #e5e7eb; z-index: 0; }
+        .status-step { display: flex; flex-direction: column; align-items: center; gap: 6px; z-index: 1; }
+        .step-dot { width: 36px; height: 36px; border-radius: 50%; background: #e5e7eb; display: flex; align-items: center; justify-content: center; font-size: 1rem; transition: all 0.4s ease; }
+        .step-dot.active { background: var(--burgundy); }
+        .step-dot.done { background: #10b981; }
+        .step-label { font-size: 0.68rem; font-weight: 600; color: #9ca3af; text-align: center; max-width: 60px; }
+        .step-label.active { color: var(--burgundy); }
+        .step-label.done { color: #10b981; }
+
+        /* TOAST NOTIFICATION STATUT */
+        .status-toast { position: fixed; top: 20px; left: 50%; transform: translateX(-50%) translateY(-100px); background: #1f2937; color: white; padding: 14px 22px; border-radius: 12px; font-weight: 700; font-size: 0.9rem; z-index: 9999; transition: transform 0.4s ease; box-shadow: 0 8px 20px rgba(0,0,0,0.3); text-align: center; min-width: 260px; }
+        .status-toast.show { transform: translateX(-50%) translateY(0); }
+
         /* ── MÉDIAS PRODUIT (digital only) ── */
         .product-media-wrap { position: relative; flex-shrink: 0; }
         .product-img { width: 76px; height: 76px; border-radius: 10px; object-fit: cover; display: block; }
@@ -197,7 +213,28 @@
         <p>Le bar a bien reçu votre commande.</p>
         <div style="background:#fff8f0;border:2px solid #b2a48f;border-radius:12px;padding:14px;margin:14px 0;text-align:center;">
             <div style="font-size:0.82rem;color:#6b7280;margin-bottom:4px;">⏱ Temps estimé</div>
-            <div id="eta-text" style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:#601424;">~10-15 minutes</div>
+            <div id="eta-text" style="font-family:'Playfair Display',serif;font-size:1.4rem;font-weight:700;color:#601424;">Calcul en cours...</div>
+        </div>
+        <!-- TRACKER STATUT LIVE -->
+        <div class="order-status-tracker">
+            <div class="status-steps">
+                <div class="status-step">
+                    <div class="step-dot active" id="step-pending">📥</div>
+                    <div class="step-label active" id="label-pending">Reçue</div>
+                </div>
+                <div class="status-step">
+                    <div class="step-dot" id="step-preparing">👨‍🍳</div>
+                    <div class="step-label" id="label-preparing">Préparation</div>
+                </div>
+                <div class="status-step">
+                    <div class="step-dot" id="step-done">✅</div>
+                    <div class="step-label" id="label-done">Prête</div>
+                </div>
+                <div class="status-step">
+                    <div class="step-dot" id="step-paid">💰</div>
+                    <div class="step-label" id="label-paid">Payée</div>
+                </div>
+            </div>
         </div>
         <!-- HISTORIQUE SESSION -->
         <div id="order-history-wrap" style="width:100%;margin-bottom:14px;display:none;">
@@ -653,23 +690,81 @@ async function sendOrder() {
     const total = orderItems.reduce((s, i) => s + i.price * i.qty, 0);
     const tableLabel = clientName ? table + ' — ' + clientName : table;
 
-    await db.from('orders').insert({
+    const { data: insertedOrder } = await db.from('orders').insert({
         table_number: tableLabel,
         items: orderItems,
         total: total,
         status: 'pending',
         created_at: new Date().toISOString()
-    });
+    }).select('id').single();
 
-    // Calculer ETA basé sur le nombre de commandes en cours
-    const { data: activeOrders } = await db.from('orders')
-        .select('id').in('status', ['pending', 'preparing']);
-    const queueSize = (activeOrders || []).length;
-    const etaMin = Math.max(5, 5 + queueSize * 2);
-    const etaMax = etaMin + 5;
+    if (insertedOrder?.id) {
+        window._lastOrderId = insertedOrder.id;
+        startOrderTracking(insertedOrder.id);
+    }
 
-    // Afficher confirmation avec ETA
-    document.getElementById('eta-text').textContent = `~${etaMin}-${etaMax} minutes`;
+    // ETA précis multi-facteurs
+    try {
+        // 1. Historique des vraies durées
+        const { data: completedOrders } = await db.from('orders')
+            .select('created_at, completed_at, items')
+            .eq('status', 'done')
+            .not('completed_at', 'is', null)
+            .order('completed_at', { ascending: false })
+            .limit(30);
+
+        // 2. File d'attente actuelle
+        const { data: activeOrders } = await db.from('orders')
+            .select('id, items, created_at').in('status', ['pending', 'preparing']);
+        const queueSize = (activeOrders || []).length;
+        const queueItems = (activeOrders || []).reduce((s, o) => s + (o.items || []).reduce((ss, i) => ss + (i.qty || 1), 0), 0);
+
+        // 3. Nombre d'articles dans CETTE commande
+        const thisOrderItems = orderItems.reduce((s, i) => s + (i.qty || 1), 0);
+
+        // 4. Heure de pointe (18h-22h = +20%)
+        const hour = new Date().getHours();
+        const rushCoeff = (hour >= 18 && hour <= 22) ? 1.2 : 1.0;
+
+        // 5. Calculer temps moyen réel pondéré par nombre d'articles
+        let baseMinutes = null;
+        if (completedOrders && completedOrders.length >= 3) {
+            const weighted = completedOrders
+                .map(o => {
+                    const dur = (new Date(o.completed_at) - new Date(o.created_at)) / 60000;
+                    const items = (o.items || []).reduce((s, i) => s + (i.qty || 1), 0) || 1;
+                    return dur > 0 && dur < 60 ? { dur, items } : null;
+                })
+                .filter(Boolean);
+
+            if (weighted.length > 0) {
+                // Temps par article moyen
+                const timePerItem = weighted.reduce((s, w) => s + w.dur / w.items, 0) / weighted.length;
+                baseMinutes = timePerItem * thisOrderItems;
+            }
+        }
+
+        // 6. Calcul final
+        let etaBase;
+        if (baseMinutes !== null) {
+            // Basé sur historique réel
+            const queueWait = queueSize * 1.5 + queueItems * 0.3;
+            etaBase = (baseMinutes + queueWait) * rushCoeff;
+        } else {
+            // Pas assez de données : estimation par taille commande + file
+            etaBase = (3 + thisOrderItems * 1.5 + queueSize * 2) * rushCoeff;
+        }
+
+        const etaMin = Math.max(2, Math.round(etaBase));
+        const etaMax = etaMin + Math.max(2, Math.round(etaMin * 0.3));
+        document.getElementById('eta-text').textContent = '~' + etaMin + '-' + etaMax + ' min';
+
+        // Stocker l'ID de commande pour le suivi
+        window._lastOrderId = null; // sera mis à jour après l'insert
+
+    } catch(e) {
+        document.getElementById('eta-text').textContent = 'En cours...';
+    }
     // Historique session
     const histEntry = { time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), table: tableLabel, items: orderItems, total: total };
     const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
@@ -726,6 +821,64 @@ function renderOrderHistory() {
         list.innerHTML += '<div style="display:flex;justify-content:space-between;font-weight:800;padding:8px 0;border-top:2px solid #601424;color:#601424;font-size:0.95rem;">'
             + '<span>Total de la soirée</span><span>' + grandTotal.toFixed(2) + '€</span></div>';
     }
+}
+
+// ── SUIVI COMMANDE EN TEMPS RÉEL ──
+let trackingInterval = null;
+let lastTrackedStatus = null;
+
+function startOrderTracking(orderId) {
+    if (trackingInterval) clearInterval(trackingInterval);
+    lastTrackedStatus = 'pending';
+    updateStatusTracker('pending');
+    trackingInterval = setInterval(async () => {
+        try {
+            const { data } = await db.from('orders').select('status').eq('id', orderId).single();
+            if (!data) return;
+            const newStatus = data.status;
+            if (newStatus !== lastTrackedStatus) {
+                lastTrackedStatus = newStatus;
+                updateStatusTracker(newStatus);
+                showStatusNotification(newStatus);
+                if (newStatus === 'paid' || newStatus === 'cancelled') clearInterval(trackingInterval);
+            }
+        } catch(e) {}
+    }, 8000);
+}
+
+function updateStatusTracker(status) {
+    const steps = ['pending', 'preparing', 'done', 'paid'];
+    const currentIdx = steps.indexOf(status);
+    steps.forEach((step, i) => {
+        const dot = document.getElementById('step-' + step);
+        const label = document.getElementById('label-' + step);
+        if (!dot || !label) return;
+        if (i < currentIdx) { dot.className = 'step-dot done'; label.className = 'step-label done'; }
+        else if (i === currentIdx) { dot.className = 'step-dot active'; label.className = 'step-label active'; }
+        else { dot.className = 'step-dot'; label.className = 'step-label'; }
+    });
+}
+
+function showStatusNotification(status) {
+    const messages = {
+        preparing: { icon: '👨‍🍳', text: 'Votre commande est en préparation !' },
+        done: { icon: '✅', text: 'Votre commande est prête ! Bon appétit 🎉' },
+        paid: { icon: '💰', text: 'Merci, à bientôt !' },
+        cancelled: { icon: '❌', text: 'Votre commande a été annulée.' }
+    };
+    const msg = messages[status];
+    if (!msg) return;
+    let toast = document.getElementById('status-toast');
+    if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'status-toast';
+        toast.className = 'status-toast';
+        document.body.appendChild(toast);
+    }
+    toast.innerHTML = msg.icon + ' ' + msg.text;
+    toast.classList.add('show');
+    if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+    setTimeout(() => toast.classList.remove('show'), 6000);
 }
 
 init();
