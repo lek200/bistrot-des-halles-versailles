@@ -124,6 +124,10 @@
         /* LOADING */
         .loading { text-align: center; padding: 40px; color: #9ca3af; font-style: italic; }
 
+        /* MODE HORS LIGNE */
+        .offline-banner { position: fixed; top: 0; left: 0; right: 0; background: #f59e0b; color: #1c1400; padding: 8px 16px; text-align: center; font-size: 0.78rem; font-weight: 700; z-index: 9999; display: none; }
+        .offline-banner.show { display: block; }
+
         /* LANGUAGE SWITCHER */
         .lang-switcher { display: flex; gap: 6px; justify-content: center; margin-bottom: 20px; flex-wrap: wrap; }
         .lang-btn { background: white; border: 1.5px solid var(--taupe); color: var(--burgundy); padding: 6px 12px; border-radius: 20px; font-size: 0.78rem; font-weight: 700; cursor: pointer; transition: all 0.15s; }
@@ -194,6 +198,11 @@
     </style>
 </head>
 <body>
+
+<!-- BANNIÈRE HORS LIGNE -->
+<div class="offline-banner" id="offline-banner">
+    📡 Mode hors ligne — Menu chargé depuis le cache. Les commandes ne peuvent pas être envoyées.
+</div>
 
 <!-- SAS -->
 <div class="sas-screen" id="view-sas">
@@ -397,6 +406,9 @@ async function loadState() {
         const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
         if (!error && data && data.value) {
             appState = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+            // Sauvegarder en cache local pour mode hors ligne
+            localStorage.setItem('bh_menu_cache', JSON.stringify(appState));
+            localStorage.setItem('bh_menu_cache_date', new Date().toISOString());
         } else {
             // État par défaut si rien en base
             appState = {
@@ -418,7 +430,13 @@ async function loadState() {
                 ]
             };
         }
-    } catch(e) { console.error(e); }
+    } catch(e) {
+        console.warn('Connexion impossible, utilisation du cache local');
+        const cached = localStorage.getItem('bh_menu_cache');
+        if (cached) {
+            try { appState = JSON.parse(cached); showOfflineBanner(); return; } catch(e2) {}
+        }
+    }
 }
 
 function renderSas() {
@@ -1315,6 +1333,42 @@ function restoreLang() {
         if (btn) btn.click();
     }
 }
+
+// ── MODE HORS LIGNE ──
+let isOffline = false;
+
+function showOfflineBanner() {
+    isOffline = true;
+    const banner = document.getElementById('offline-banner');
+    if (banner) banner.classList.add('show');
+    // Désactiver le bouton d'envoi
+    const sendBtn = document.getElementById('btn-send');
+    if (sendBtn) { sendBtn.disabled = true; sendBtn.textContent = '❌ Hors ligne — commande impossible'; }
+}
+
+function hideOfflineBanner() {
+    isOffline = false;
+    const banner = document.getElementById('offline-banner');
+    if (banner) banner.classList.remove('show');
+    const sendBtn = document.getElementById('btn-send');
+    if (sendBtn) { sendBtn.disabled = false; sendBtn.textContent = '✅ Envoyer la commande'; }
+}
+
+// Écouter les changements de connexion
+window.addEventListener('online', async () => {
+    hideOfflineBanner();
+    // Recharger les données fraîches
+    await loadState();
+    renderSas();
+    if (currentMenuId) renderMenu(currentMenuId);
+});
+
+window.addEventListener('offline', () => {
+    showOfflineBanner();
+});
+
+// Vérifier la connexion au démarrage
+if (!navigator.onLine) showOfflineBanner();
 
 // ── SUIVI COMMANDE EN TEMPS RÉEL ──
 let trackingInterval = null;
