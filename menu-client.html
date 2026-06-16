@@ -45,6 +45,12 @@
         .btn-add:active { transform: scale(0.95); }
         .product-badge { position: absolute; top: -7px; right: -7px; background: #f59e0b; color: white; border-radius: 50%; width: 18px; height: 18px; font-size: 0.65rem; font-weight: 800; display: flex; align-items: center; justify-content: center; }
 
+        /* ALLERGÈNES */
+        .allergen-badges { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 5px; }
+        .allergen-badge { font-size: 0.62rem; background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; border-radius: 4px; padding: 2px 7px; font-weight: 700; white-space: nowrap; letter-spacing: 0.3px; text-transform: uppercase; }
+        .allergen-badge.major { background: #fff1f1; color: #b91c1c; border-color: #fca5a5; }
+        .allergen-label { font-size: 0.65rem; color: #9ca3af; font-weight: 600; margin-top: 4px; display: block; }
+
         /* SUGGESTIONS */
         .suggestions-bar { background: white; border-top: 1px solid #e5d9c8; padding: 10px 16px; display: none; }
         .suggestions-bar.show { display: block; }
@@ -576,12 +582,19 @@ function renderMenu(menuId) {
                             ? `<div class="product-media-wrap no-print"><video class="product-video" src="${p.mediaUrl}" autoplay loop muted playsinline></video></div>`
                             : `<div class="product-media-wrap no-print"><img class="product-img" src="${p.mediaUrl}" alt="${p.name}" loading="lazy"></div>`
                         ) : '';
+                        const allergens = p.allergens || [];
+                        const allergenNames = { gluten:'Gluten', lactose:'Lactose', noix:'Fruits à coque', oeufs:'Œufs', poisson:'Poisson', soja:'Soja', sulfites:'Sulfites', celeri:'Céleri' };
+                        const majorAllergens = ['noix', 'poisson', 'oeufs'];
+                        const allergenBadges = allergens.map(a =>
+                            `<span class="allergen-badge ${majorAllergens.includes(a) ? 'major' : ''}">${allergenNames[a] || a}</span>`
+                        ).join('');
                         block.innerHTML += `
                 <div class="product-item">
                     ${media}
                     <div class="product-item-info">
                         <div class="product-meta"><span>${p.name}</span><span>${parseFloat(p.price).toFixed(2)}€</span></div>
                         <div class="product-desc">${p.desc}</div>
+                        ${allergens.length ? `<div class="allergen-badges"><span class="allergen-label">Contient :</span>${allergenBadges}</div>` : ''}
                     </div>
                     <div class="product-item-actions no-print">
                         <button class="btn-add" data-product-id="${p.id}" onclick="addToCart('${p.id}')">+ Ajouter${cart[p.id] ? `<span class="product-badge">${cart[p.id]}</span>` : ''}</button>
