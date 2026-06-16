@@ -1181,7 +1181,7 @@ function renderInventoryList() {
         btnEdit.onclick = () => openInlineEdit(p.id);
 
         const btnVis = document.createElement('button');
-        btnVis.className = 'btn-icon'; btnVis.textContent = p.isHidden ? '🙈' : '👁️';
+        btnVis.className = 'btn-icon'; btnVis.textContent = p.isHidden ? 'Afficher' : 'Masquer'; btnVis.style.fontSize = '0.72rem'; btnVis.style.fontWeight = '700';
         btnVis.onclick = () => toggleVisibility(p.id);
 
         const btnDel = document.createElement('button');
@@ -1314,14 +1314,14 @@ function renderCarteTree() {
                 prodDiv.dataset.catId = cat.id;
                 prodDiv.innerHTML = `
                     <span class="drag-handle" title="Glisser pour réordonner">⠿</span>
-                    ${p.mediaUrl ? `<img class="tree-prod-thumb" src="${p.mediaUrl}" onerror="this.style.display='none'">` : '<div style="width:28px;height:28px;border-radius:4px;background:#f3f4f6;flex-shrink:0;"></div>'}
+                    ${p.mediaUrl ? `<img class="tree-prod-thumb" src="${p.mediaUrl}" onerror="this.style.display='none'">` : ''}
                     <div class="tree-prod-info">
                         <div class="tree-prod-name">${p.name}</div>
                         <div class="tree-prod-price">${parseFloat(p.price).toFixed(2)}€ ${p.isHidden ? '· 🙈 masqué' : ''}</div>
                     </div>
                     <div style="display:flex;gap:4px;flex-shrink:0;">
                         <button class="tree-btn-sm" onclick="editProdInline('${p.id}','${cat.id}')">✏️</button>
-                        <button class="tree-btn-sm" onclick="toggleVisibility('${p.id}')">${p.isHidden ? '👁️' : '🙈'}</button>
+                        <button class="tree-btn-sm" onclick="toggleVisibility('${p.id}')" title="${p.isHidden ? 'Afficher' : 'Masquer'}">${p.isHidden ? 'Afficher' : 'Masquer'}</button>
                         <button class="tree-btn-sm danger" onclick="deleteProduct('${p.id}')">🗑️</button>
                     </div>`;
 
