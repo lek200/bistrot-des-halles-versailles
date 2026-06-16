@@ -690,38 +690,63 @@ function closeCart() {
     document.getElementById('cart-overlay').classList.remove('open');
 }
 
-function openHistory() {
+async function openHistory() {
     const modal = document.getElementById('history-modal');
     const overlay = document.getElementById('history-overlay');
     const container = document.getElementById('history-modal-content');
     if (!modal) return;
 
-    const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
-    if (!hist.length) {
-        container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;font-style:italic;">Aucune commande passée ce soir.</div>';
-    } else {
-        let html = '';
-        let grandTotal = 0;
-        hist.forEach((entry, i) => {
-            grandTotal += entry.total;
-            const itemsStr = entry.items.map(it => it.qty + 'x ' + it.name).join(', ');
-            html += '<div style="background:#fff8f0;border:1px solid #e5d9c8;border-radius:10px;padding:12px;margin-bottom:10px;">'
-                + '<div style="display:flex;justify-content:space-between;font-weight:700;font-size:0.88rem;color:#601424;">'
-                + '<span>Commande ' + (i+1) + ' · ' + entry.time + '</span>'
-                + '<span>' + entry.total.toFixed(2) + '€</span></div>'
-                + '<div style="font-size:0.78rem;color:#6b7280;margin-top:2px;">📍 ' + entry.table + '</div>'
-                + '<div style="font-size:0.82rem;margin-top:6px;color:#374151;line-height:1.5;">' + itemsStr + '</div>'
-                + '</div>';
-        });
-        if (hist.length > 1) {
-            html += '<div style="display:flex;justify-content:space-between;font-weight:800;padding:12px 0;border-top:2px solid #601424;color:#601424;font-size:1rem;margin-top:4px;">'
-                + '<span>Total de la soirée</span><span>' + grandTotal.toFixed(2) + '€</span></div>';
-        }
-        container.innerHTML = html;
-    }
-
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:#9ca3af;">Chargement...</div>';
     modal.classList.add('open');
     overlay.classList.add('open');
+
+    const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
+    if (!hist.length) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;font-style:italic;">Aucune commande ce soir.</div>';
+        return;
+    }
+
+    const statusLabels = {
+        pending: { label: 'En attente', color: '#92400e', bg: '#fef3c7', icon: '🟡' },
+        preparing: { label: 'En preparation', color: '#1e40af', bg: '#dbeafe', icon: '🔵' },
+        done: { label: 'Prete !', color: '#065f46', bg: '#d1fae5', icon: '✅' },
+        paid: { label: 'Payee', color: '#1e40af', bg: '#dbeafe', icon: '💰' },
+        cancelled: { label: 'Annulee', color: '#991b1b', bg: '#fee2e2', icon: '❌' }
+    };
+
+    let liveStatuses = {};
+    try {
+        const orderNums = hist.map(h => h.orderNum).filter(Boolean);
+        if (orderNums.length > 0) {
+            const { data } = await db.from('orders').select('order_number, status').in('order_number', orderNums);
+            if (data) data.forEach(o => { liveStatuses[o.order_number] = o.status; });
+        }
+    } catch(e) {}
+
+    let html = '';
+    let grandTotal = 0;
+    hist.forEach((entry) => {
+        grandTotal += entry.total;
+        const itemsStr = (entry.items || []).map(it => (it.qty || 1) + 'x ' + it.name).join(', ');
+        const liveStatus = entry.orderNum ? (liveStatuses[entry.orderNum] || 'pending') : 'pending';
+        const s = statusLabels[liveStatus] || statusLabels.pending;
+        html += '<div style="background:#fff8f0;border:1px solid #e5d9c8;border-radius:10px;padding:12px;margin-bottom:10px;">'
+            + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
+            + '<div>'
+            + (entry.orderNum ? '<div style="font-family:monospace;font-size:0.82rem;font-weight:700;color:#601424;letter-spacing:2px;">' + entry.orderNum + '</div>' : '')
+            + '<div style="font-size:0.75rem;color:#6b7280;">' + entry.time + ' - ' + entry.table + '</div>'
+            + '</div>'
+            + '<span style="background:' + s.bg + ';color:' + s.color + ';font-size:0.72rem;font-weight:700;padding:4px 10px;border-radius:20px;">' + s.icon + ' ' + s.label + '</span>'
+            + '</div>'
+            + '<div style="font-size:0.82rem;color:#374151;margin-bottom:6px;">' + itemsStr + '</div>'
+            + '<div style="font-weight:700;color:#601424;text-align:right;">' + entry.total.toFixed(2) + '€</div>'
+            + '</div>';
+    });
+    if (hist.length > 1) {
+        html += '<div style="display:flex;justify-content:space-between;font-weight:800;padding:10px 0;border-top:2px solid #601424;color:#601424;">'
+            + '<span>Total soiree</span><span>' + grandTotal.toFixed(2) + '€</span></div>';
+    }
+    container.innerHTML = html;
 }
 
 function closeHistory() {
