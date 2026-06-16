@@ -390,6 +390,19 @@
                     <label>📸 Photo/Vidéo (URL)</label>
                     <input type="text" id="add-prod-media" class="form-control" placeholder="https://... (jpg/png/mp4)">
                 </div>
+                <div class="form-group">
+                    <label>⚠️ Allergènes</label>
+                    <div style="display:flex;flex-wrap:wrap;gap:6px;padding:8px;border:1px solid #d1d5db;border-radius:6px;" id="allergen-checkboxes">
+                        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:600;"><input type="checkbox" value="gluten"> Gluten</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:600;"><input type="checkbox" value="lactose"> Lactose</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:600;"><input type="checkbox" value="noix"> Fruits à coque</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:600;"><input type="checkbox" value="oeufs"> Œufs</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:600;"><input type="checkbox" value="poisson"> Poisson</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:600;"><input type="checkbox" value="soja"> Soja</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:600;"><input type="checkbox" value="sulfites"> Sulfites</label>
+                        <label style="display:flex;align-items:center;gap:4px;font-size:0.78rem;font-weight:600;"><input type="checkbox" value="celeri"> Céleri</label>
+                    </div>
+                </div>
                 <button class="btn-submit" style="background:var(--success);" onclick="adminCreateProduct()">Publier</button>
             </div>
 
@@ -1126,9 +1139,11 @@ async function adminCreateProduct() {
     const desc = document.getElementById('add-prod-desc').value.trim();
     const mediaUrl = document.getElementById('add-prod-media').value.trim();
     const mediaType = mediaUrl.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'image';
+    const allergens = Array.from(document.querySelectorAll('#allergen-checkboxes input:checked')).map(cb => cb.value);
     if (!name || isNaN(price)) return alert('Nom et prix requis.');
-    appState.products.push({ id: 'p_' + Date.now(), catId, name, price, desc, isHidden: false, mediaUrl: mediaUrl || null, mediaType: mediaUrl ? mediaType : null });
+    appState.products.push({ id: 'p_' + Date.now(), catId, name, price, desc, isHidden: false, mediaUrl: mediaUrl || null, mediaType: mediaUrl ? mediaType : null, allergens });
     ['add-prod-name','add-prod-price','add-prod-desc','add-prod-media'].forEach(id => document.getElementById(id).value = '');
+    document.querySelectorAll('#allergen-checkboxes input').forEach(cb => cb.checked = false);
     await saveState(); refreshAll(); showToast(`"${name}" ajouté`);
 }
 
@@ -1180,11 +1195,22 @@ function renderInventoryList() {
         const editForm = document.createElement('div');
         editForm.className = 'inline-edit-form';
         editForm.id = `edit-form-${p.id}`;
+        const allergensList = ['gluten','lactose','noix','oeufs','poisson','soja','sulfites','celeri'];
+        const allergenIcons = { gluten:'Gluten', lactose:'Lactose', noix:'Fruits à coque', oeufs:'Œufs', poisson:'Poisson', soja:'Soja', sulfites:'Sulfites', celeri:'Céleri' };
+        const currentAllergens = p.allergens || [];
+        const allergensHtml = allergensList.map(a =>
+            `<label style="display:flex;align-items:center;gap:3px;font-size:0.72rem;">
+                <input type="checkbox" id="ea-${p.id}-${a}" value="${a}" ${currentAllergens.includes(a) ? 'checked' : ''}>
+                ${allergenIcons[a]} ${a}
+            </label>`
+        ).join('');
+
         editForm.innerHTML = `
             <input type="text" id="edit-name-${p.id}" value="${p.name}" placeholder="Nom" style="flex:2;min-width:90px;">
             <input type="number" id="edit-price-${p.id}" value="${p.price}" step="0.10" min="0" style="width:65px;">
             <input type="text" id="edit-desc-${p.id}" value="${p.desc}" placeholder="Description" style="flex:3;min-width:100px;">
             <input type="text" id="edit-media-${p.id}" value="${p.mediaUrl || ''}" placeholder="URL photo/vidéo" style="flex:3;min-width:100px;">
+            <div style="display:flex;flex-wrap:wrap;gap:6px;width:100%;padding:6px 0;">${allergensHtml}</div>
             <button class="btn-save-inline" onclick="saveInlineEdit('${p.id}')">Sauver</button>
             <button class="btn-cancel-inline" onclick="closeInlineEdit('${p.id}')">✕</button>`;
         wrapper.appendChild(row); wrapper.appendChild(editForm);
@@ -1207,6 +1233,8 @@ async function saveInlineEdit(id) {
     const mediaUrl = document.getElementById(`edit-media-${id}`)?.value.trim();
     p.mediaUrl = mediaUrl || null;
     p.mediaType = mediaUrl ? (mediaUrl.match(/\.(mp4|webm|mov)$/i) ? 'video' : 'image') : null;
+    const allergensList = ['gluten','lactose','noix','oeufs','poisson','soja','sulfites','celeri'];
+    p.allergens = allergensList.filter(a => document.getElementById(`ea-${id}-${a}`)?.checked);
     await saveState(); refreshAll(); showToast(`"${p.name}" mis à jour`);
 }
 
