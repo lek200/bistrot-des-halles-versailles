@@ -246,11 +246,22 @@
         <!-- STATS -->
         <div id="tab-dashboard" class="tab-content">
             <!-- PÉRIODE -->
-            <div class="period-selector" style="margin-bottom:14px;">
+            <div class="period-selector" style="margin-bottom:10px;">
                 <button class="btn-period active" onclick="changePeriod('today',this)">Auj.</button>
                 <button class="btn-period" onclick="changePeriod('week',this)">7j</button>
                 <button class="btn-period" onclick="changePeriod('month',this)">Mois</button>
                 <button class="btn-period" onclick="changePeriod('all',this)">Tout</button>
+                <button class="btn-period" onclick="changePeriod('custom',this)">🗓️</button>
+            </div>
+            <div id="custom-date-inputs" style="display:none;gap:8px;margin-bottom:10px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:120px;">
+                    <label style="font-size:0.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px;">Du :</label>
+                    <input type="date" id="date-start" class="form-control" style="font-size:0.82rem;" onchange="calculateStats()">
+                </div>
+                <div style="flex:1;min-width:120px;">
+                    <label style="font-size:0.72rem;font-weight:600;color:var(--muted);display:block;margin-bottom:3px;">Au :</label>
+                    <input type="date" id="date-end" class="form-control" style="font-size:0.82rem;" onchange="calculateStats()">
+                </div>
             </div>
 
             <!-- KPIs PRINCIPAUX -->
@@ -376,9 +387,9 @@
         <!-- QR -->
         <div id="tab-qr" class="tab-content">
             <div class="card">
-                <h2>📱 QR Code — Menu Client</h2>
-                <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;">Scannez pour accéder au menu client. Imprimez et placez sur vos tables.</p>
-                <div class="form-group"><label>URL du menu client :</label><input type="text" id="qr-url-input" class="form-control" value="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html"></div>
+                <h2>📱 QR Code Menu Général</h2>
+                <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;">QR code général sans table pré-sélectionnée.</p>
+                <div class="form-group"><label>URL :</label><input type="text" id="qr-url-input" class="form-control" value="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html"></div>
                 <div class="form-group"><label>Taille :</label><select id="qr-size" class="form-control"><option value="160">Petit</option><option value="220" selected>Moyen</option><option value="300">Grand</option></select></div>
                 <button class="btn-submit" style="background:var(--burgundy);" onclick="generateQRCode()">Générer</button>
                 <div id="qr-display" style="display:none;margin-top:16px;text-align:center;">
@@ -386,9 +397,18 @@
                     <div class="qr-url-display" id="qr-url-label"></div>
                     <div style="display:flex;gap:8px;margin-top:10px;">
                         <button class="btn-submit" style="background:var(--success);flex:1;" onclick="downloadQR()">⬇️ Télécharger PNG</button>
-                        <button class="btn-submit" style="background:var(--info);flex:1;" onclick="emailQR()">📧 Envoyer par mail</button>
+                        <button class="btn-submit" style="background:var(--info);flex:1;" onclick="emailQR()">📧 Email</button>
                     </div>
                 </div>
+            </div>
+
+            <div class="card">
+                <h2>🪑 QR Codes par Table</h2>
+                <p style="font-size:0.78rem;color:var(--muted);margin-bottom:12px;">Chaque QR code détecte automatiquement la table quand le client scanne.</p>
+                <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px;" id="table-qr-grid">
+                    <!-- généré dynamiquement -->
+                </div>
+                <button class="btn-submit" style="background:var(--burgundy);margin-top:12px;" onclick="generateAllTableQR()">🖨️ Générer tous les QR tables</button>
             </div>
 
             <!-- IMPRESSION PDF -->
@@ -409,11 +429,24 @@
         </div>
     </div>
 
-    <div class="preview-panel">
-        <div class="preview-label">🍷 Menu client accessible sur :</div>
-        <a class="preview-link" href="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html" target="_blank">Ouvrir le menu client ↗</a>
-        <div class="preview-label" style="margin-top:20px;">Les modifications de carte<br>sont synchronisées en temps réel</div>
-        <div id="last-sync" style="color:#4b5563;font-size:0.75rem;margin-top:4px;">—</div>
+    <div class="preview-panel" style="flex-direction:column;gap:10px;padding:12px;">
+        <div style="display:flex;gap:8px;width:100%;">
+            <a href="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html" target="_blank"
+               style="flex:1;background:var(--burgundy);color:white;padding:10px;border-radius:8px;font-size:0.8rem;font-weight:700;text-decoration:none;text-align:center;">
+               📱 Menu client ↗
+            </a>
+            <a href="https://lek200.github.io/bistrot-des-halles-versailles/print-menu.html" target="_blank"
+               style="flex:1;background:#374151;color:white;padding:10px;border-radius:8px;font-size:0.8rem;font-weight:700;text-decoration:none;text-align:center;">
+               🖨️ Imprimer ↗
+            </a>
+        </div>
+        <div id="last-sync" style="color:#9ca3af;font-size:0.72rem;text-align:center;">—</div>
+
+        <!-- APERÇU CARTE LIVE -->
+        <div style="background:#f9fafb;border-radius:10px;border:1px solid #374151;flex:1;overflow-y:auto;width:100%;padding:14px;">
+            <div style="color:#9ca3af;font-size:0.75rem;font-weight:600;margin-bottom:10px;text-align:center;">APERÇU CARTE</div>
+            <div id="preview-menu-content"></div>
+        </div>
     </div>
 </div>
 
@@ -683,6 +716,8 @@ function changePeriod(period, btn) {
     document.querySelectorAll('.btn-period').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     appState.currentPeriod = period;
+    const customDiv = document.getElementById('custom-date-inputs');
+    if (customDiv) customDiv.style.display = period === 'custom' ? 'flex' : 'none';
     calculateStats();
 }
 
@@ -700,6 +735,14 @@ function calculateStats() {
             const d = new Date(o.created_at);
             return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
         });
+    } else if (appState.currentPeriod === 'custom') {
+        const startEl = document.getElementById('date-start');
+        const endEl = document.getElementById('date-end');
+        if (startEl?.value) {
+            const start = new Date(startEl.value);
+            const end = endEl?.value ? new Date(endEl.value + 'T23:59:59') : now;
+            filtered = filtered.filter(o => { const d = new Date(o.created_at); return d >= start && d <= end; });
+        }
     }
 
     const ca = filtered.reduce((s, o) => s + parseFloat(o.total || 0), 0);
@@ -951,6 +994,41 @@ function refreshAll() {
     renderOrders();
     calculateStats();
     renderCarteTree();
+    renderPreview();
+}
+
+function renderPreview() {
+    const container = document.getElementById('preview-menu-content');
+    if (!container) return;
+    container.innerHTML = '';
+
+    appState.menus.forEach(menu => {
+        const menuDiv = document.createElement('div');
+        menuDiv.style.cssText = 'margin-bottom:14px;';
+        menuDiv.innerHTML = '<div style="font-family:Playfair Display,serif;color:#ede2cf;font-size:0.95rem;font-weight:700;border-bottom:1px solid #4b5563;padding-bottom:4px;margin-bottom:8px;">' + menu.name + '</div>';
+
+        appState.categories.filter(c => c.menuId === menu.id).forEach(cat => {
+            const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
+            if (!prods.length) return;
+
+            const catDiv = document.createElement('div');
+            catDiv.style.cssText = 'margin-bottom:8px;';
+            catDiv.innerHTML = '<div style="font-size:0.72rem;font-weight:700;color:#9ca3af;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">' + cat.name + '</div>';
+
+            prods.forEach(p => {
+                catDiv.innerHTML += '<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed #374151;font-size:0.75rem;">'
+                    + '<span style="color:#d1d5db;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">' + p.name + '</span>'
+                    + '<span style="color:#b2a48f;font-weight:700;margin-left:8px;white-space:nowrap;">' + parseFloat(p.price).toFixed(2) + '€</span>'
+                    + '</div>';
+            });
+            menuDiv.appendChild(catDiv);
+        });
+        container.appendChild(menuDiv);
+    });
+
+    if (!appState.menus.length) {
+        container.innerHTML = '<div style="color:#6b7280;text-align:center;font-style:italic;font-size:0.8rem;padding:20px;">Aucun menu créé</div>';
+    }
 }
 
 // ── DROPDOWNS ──
@@ -1355,6 +1433,34 @@ function generatePDF() {
     window.print();
     document.body.classList.remove('printing-menu');
 }
+const BASE_URL = 'https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html';
+const TABLES = ['Table 1','Table 2','Table 3','Table 4','Table 5','Table 6','Table 7','Table 8','Bar','Terrasse'];
+
+function generateAllTableQR() {
+    const grid = document.getElementById('table-qr-grid');
+    if (!grid) return;
+    grid.innerHTML = '';
+    TABLES.forEach(table => {
+        const url = BASE_URL + '?table=' + encodeURIComponent(table);
+        const cell = document.createElement('div');
+        cell.style.cssText = 'background:white;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;';
+        cell.innerHTML = '<div style="font-size:0.8rem;font-weight:700;color:var(--burgundy);margin-bottom:6px;">' + table + '</div>';
+        const qrWrap = document.createElement('div');
+        qrWrap.id = 'qr-table-' + table.replace(/\s/g,'_');
+        cell.appendChild(qrWrap);
+        const dlBtn = document.createElement('button');
+        dlBtn.style.cssText = 'margin-top:6px;background:var(--success);color:white;border:none;padding:4px 10px;border-radius:4px;font-size:0.72rem;font-weight:700;cursor:pointer;width:100%;';
+        dlBtn.textContent = '⬇️ Télécharger';
+        dlBtn.onclick = () => {
+            const img = qrWrap.querySelector('img');
+            if (img) { const a = document.createElement('a'); a.href = img.src; a.download = 'qr-' + table.replace(/\s/g,'-') + '.png'; a.click(); }
+        };
+        cell.appendChild(dlBtn);
+        grid.appendChild(cell);
+        new QRCode(qrWrap, { text: url, width: 120, height: 120, colorDark: '#601424', colorLight: '#ede2cf', correctLevel: QRCode.CorrectLevel.H });
+    });
+}
+
 function generateQRCode() {
     const url = document.getElementById('qr-url-input').value.trim();
     if (!url) return;
