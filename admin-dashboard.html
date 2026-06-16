@@ -1443,21 +1443,98 @@ function generateAllTableQR() {
     TABLES.forEach(table => {
         const url = BASE_URL + '?table=' + encodeURIComponent(table);
         const cell = document.createElement('div');
-        cell.style.cssText = 'background:white;border:1px solid var(--border);border-radius:8px;padding:10px;text-align:center;';
-        cell.innerHTML = '<div style="font-size:0.8rem;font-weight:700;color:var(--burgundy);margin-bottom:6px;">' + table + '</div>';
+        cell.style.cssText = 'background:white;border:1px solid var(--border);border-radius:10px;padding:12px;text-align:center;';
+
+        // QR wrap temporaire
         const qrWrap = document.createElement('div');
-        qrWrap.id = 'qr-table-' + table.replace(/\s/g,'_');
+        qrWrap.style.display = 'inline-block';
         cell.appendChild(qrWrap);
+
+        // Bouton télécharger (canvas combiné)
         const dlBtn = document.createElement('button');
-        dlBtn.style.cssText = 'margin-top:6px;background:var(--success);color:white;border:none;padding:4px 10px;border-radius:4px;font-size:0.72rem;font-weight:700;cursor:pointer;width:100%;';
+        dlBtn.style.cssText = 'margin-top:8px;background:var(--success);color:white;border:none;padding:6px 10px;border-radius:6px;font-size:0.72rem;font-weight:700;cursor:pointer;width:100%;';
         dlBtn.textContent = '⬇️ Télécharger';
-        dlBtn.onclick = () => {
-            const img = qrWrap.querySelector('img');
-            if (img) { const a = document.createElement('a'); a.href = img.src; a.download = 'qr-' + table.replace(/\s/g,'-') + '.png'; a.click(); }
-        };
         cell.appendChild(dlBtn);
         grid.appendChild(cell);
-        new QRCode(qrWrap, { text: url, width: 120, height: 120, colorDark: '#601424', colorLight: '#ede2cf', correctLevel: QRCode.CorrectLevel.H });
+
+        // Générer QR puis composer canvas final
+        new QRCode(qrWrap, { text: url, width: 130, height: 130, colorDark: '#601424', colorLight: '#ede2cf', correctLevel: QRCode.CorrectLevel.H });
+
+        setTimeout(() => {
+            const qrImg = qrWrap.querySelector('img') || qrWrap.querySelector('canvas');
+            if (!qrImg) return;
+
+            // Canvas final : logo BH + QR + nom table
+            const canvas = document.createElement('canvas');
+            const W = 200, H = 260;
+            canvas.width = W; canvas.height = H;
+            const ctx = canvas.getContext('2d');
+
+            // Fond crème
+            ctx.fillStyle = '#ede2cf';
+            ctx.fillRect(0, 0, W, H);
+
+            // Bordure arrondie
+            ctx.strokeStyle = '#601424';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.roundRect(2, 2, W-4, H-4, 10);
+            ctx.stroke();
+
+            // Logo BH cercle
+            ctx.fillStyle = '#601424';
+            ctx.beginPath();
+            ctx.arc(W/2, 30, 22, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = '#ede2cf';
+            ctx.font = 'bold 14px Georgia';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('BH', W/2, 30);
+
+            // Dessiner QR
+            const drawQR = () => {
+                ctx.drawImage(qrImg, (W-140)/2, 55, 140, 140);
+
+                // Nom table
+                ctx.fillStyle = '#601424';
+                ctx.font = 'bold 15px Georgia';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(table, W/2, 215);
+
+                // Ligne décorative
+                ctx.strokeStyle = '#b2a48f';
+                ctx.lineWidth = 1;
+                ctx.beginPath();
+                ctx.moveTo(20, 200); ctx.lineTo(W-20, 200);
+                ctx.stroke();
+
+                // Bistrot des Halles petit
+                ctx.fillStyle = '#b2a48f';
+                ctx.font = '10px Georgia';
+                ctx.fillText('Le Bistrot des Halles', W/2, 240);
+
+                // Ajouter aperçu dans cell
+                canvas.style.cssText = 'border-radius:8px;display:block;margin:0 auto;';
+                qrWrap.innerHTML = '';
+                qrWrap.appendChild(canvas);
+
+                dlBtn.onclick = () => {
+                    const a = document.createElement('a');
+                    a.href = canvas.toDataURL('image/png');
+                    a.download = 'qr-' + table.replace(/ /g,'-') + '.png';
+                    a.click();
+                };
+            };
+
+            if (qrImg.tagName === 'CANVAS') {
+                drawQR();
+            } else {
+                qrImg.onload ? qrImg.onload = drawQR : drawQR();
+                if (qrImg.complete) drawQR();
+            }
+        }, 300);
     });
 }
 
