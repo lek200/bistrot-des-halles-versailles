@@ -583,10 +583,32 @@ async function loadState() {
 async function saveState() {
     try {
         const payload = { menus: appState.menus, categories: appState.categories, products: appState.products };
-        await db.from('state').upsert({ key: 'app_state', value: JSON.stringify(payload) }, { onConflict: 'key' });
+        const { data: existing, error: selectError } = await db.from('state').select('id').eq('key', 'app_state').maybeSingle();
+
+        if (selectError) {
+            alert('ERREUR LECTURE : ' + selectError.message);
+            return;
+        }
+
+        let error;
+        if (existing) {
+            const res = await db.from('state').update({ value: JSON.stringify(payload) }).eq('key', 'app_state');
+            error = res.error;
+        } else {
+            const res = await db.from('state').insert({ key: 'app_state', value: JSON.stringify(payload) });
+            error = res.error;
+        }
+
+        if (error) {
+            alert('ERREUR SAUVEGARDE : ' + error.message);
+            console.error('saveState error:', error);
+            return;
+        }
+
         document.getElementById('last-sync').textContent = 'Sync : ' + new Date().toLocaleTimeString('fr-FR');
     } catch(e) {
-        console.warn('saveState error:', e);
+        alert('EXCEPTION SAUVEGARDE : ' + (e.message || e));
+        console.error('saveState exception:', e);
     }
 }
 
