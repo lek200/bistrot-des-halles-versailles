@@ -455,8 +455,8 @@ async function findOrder() {
     result.innerHTML = 'Recherche en cours...';
 
     try {
-        const { data } = await db.from('orders').select('*').eq('order_number', input).single();
-        if (!data) { result.innerHTML = '<span style="color:var(--danger);">Commande introuvable.</span>'; return; }
+        const { data, error } = await db.from('orders').select('*').eq('order_number', input).maybeSingle();
+        if (error || !data) { result.innerHTML = '<span style="color:var(--danger);">Commande introuvable — elle a peut-être été annulée par le bar.</span>'; return; }
 
         const statusLabels = { pending: '🟡 En attente', preparing: '🔵 En préparation', done: '✅ Prête !', paid: '💰 Payée', cancelled: '❌ Annulée' };
         const itemsStr = (data.items || []).map(i => i.qty + '× ' + i.name).join(', ');
@@ -832,7 +832,7 @@ async function openHistory() {
     modal.classList.add('open');
     overlay.classList.add('open');
 
-    const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
+    let hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
     if (!hist.length) {
         container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;font-style:italic;">Aucune commande ce soir.</div>';
         return;
@@ -847,20 +847,39 @@ async function openHistory() {
     };
 
     let liveStatuses = {};
+    let foundOrderNums = new Set();
     try {
         const orderNums = hist.map(h => h.orderNum).filter(Boolean);
         if (orderNums.length > 0) {
             const { data } = await db.from('orders').select('order_number, status').in('order_number', orderNums);
-            if (data) data.forEach(o => { liveStatuses[o.order_number] = o.status; });
+            if (data) data.forEach(o => { liveStatuses[o.order_number] = o.status; foundOrderNums.add(o.order_number); });
         }
     } catch(e) {}
 
+    // Retirer du sessionStorage les commandes qui n'existent plus côté serveur (supprimées par le bar)
+    const removedCount = hist.filter(h => h.orderNum && !foundOrderNums.has(h.orderNum)).length;
+    hist = hist.filter(h => !h.orderNum || foundOrderNums.has(h.orderNum));
+    sessionStorage.setItem('order_history', JSON.stringify(hist));
+
+    if (!hist.length) {
+        container.innerHTML = '<div style="text-align:center;padding:40px;color:#9ca3af;font-style:italic;">Aucune commande ce soir.</div>';
+        const hFab = document.getElementById('history-fab');
+        if (hFab) hFab.style.display = 'none';
+        return;
+    }
+
     let html = '';
+    if (removedCount > 0) {
+        html += '<div style="background:#fee2e2;color:#991b1b;border-radius:8px;padding:10px;margin-bottom:12px;font-size:0.78rem;text-align:center;">'
+            + (removedCount === 1 ? 'Une commande a été annulée par le bar.' : removedCount + ' commandes ont été annulées par le bar.')
+            + '</div>';
+    }
+
     let grandTotal = 0;
     hist.forEach((entry) => {
         grandTotal += entry.total;
         const itemsStr = (entry.items || []).map(it => (it.qty || 1) + 'x ' + it.name).join(', ');
-        const liveStatus = entry.orderNum ? (liveStatuses[entry.orderNum] || 'pending') : 'pending';
+        const liveStatus = entry.orderNum ? (liveStatuses[entry.orderNum] || entry.status || 'pending') : (entry.status || 'pending');
         const s = statusLabels[liveStatus] || statusLabels.pending;
         html += '<div style="background:#fff8f0;border:1px solid #e5d9c8;border-radius:10px;padding:12px;margin-bottom:10px;">'
             + '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">'
@@ -1371,8 +1390,16 @@ function startOrderTracking(orderId) {
     updateStatusTracker('pending');
     trackingInterval = setInterval(async () => {
         try {
-            const { data } = await db.from('orders').select('status').eq('id', orderId).single();
-            if (!data) return;
+            const { data, error } = await db.from('orders').select('status').eq('id', orderId).maybeSingle();
+            if (!data) {
+                // Commande introuvable = supprimée par le bar
+                if (lastTrackedStatus !== 'deleted') {
+                    lastTrackedStatus = 'deleted';
+                    showStatusNotification('deleted');
+                }
+                clearInterval(trackingInterval);
+                return;
+            }
             const newStatus = data.status;
             if (newStatus !== lastTrackedStatus) {
                 lastTrackedStatus = newStatus;
@@ -1402,7 +1429,8 @@ function showStatusNotification(status) {
         preparing: { icon: '👨‍🍳', text: 'Votre commande est en préparation !' },
         done: { icon: '✅', text: 'Votre commande est prête ! Bon appétit 🎉' },
         paid: { icon: '💰', text: 'Merci, à bientôt !' },
-        cancelled: { icon: '❌', text: 'Votre commande a été annulée.' }
+        cancelled: { icon: '❌', text: 'Votre commande a été annulée.' },
+        deleted: { icon: '❌', text: 'Votre commande a été annulée par le bar.' }
     };
     const msg = messages[status];
     if (!msg) return;
