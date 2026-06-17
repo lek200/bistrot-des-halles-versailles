@@ -1076,8 +1076,13 @@ function refreshAll() {
 
 function renderPreview() {
     const container = document.getElementById('preview-menu-content');
-    if (!container) return;
+    if (!container || !appState || !appState.menus) return;
     container.innerHTML = '';
+
+    if (!appState.menus.length) {
+        container.innerHTML = '<div style="color:#6b7280;text-align:center;font-style:italic;font-size:0.8rem;padding:20px;">Aucun menu créé</div>';
+        return;
+    }
 
     appState.menus.forEach(menu => {
         const menuDiv = document.createElement('div');
@@ -1475,144 +1480,12 @@ function renderPdfSelectors() {
     });
 }
 
-function generatePDF() {
-    const mode = document.querySelector('input[name="pdf-mode"]:checked')?.value || 'all';
-    let selectedMenus = [];
-    if (mode === 'all') {
-        selectedMenus = appState.menus;
-    } else {
-        document.querySelectorAll('.pdf-menu-checkbox:checked').forEach(cb => {
-            const found = appState.menus.find(m => m.id === cb.value);
-            if (found) selectedMenus.push(found);
-        });
-    }
-    if (!selectedMenus.length) return alert('Sélectionnez au moins un menu.');
-
-    // Construire le contenu
-    let body = '';
-    selectedMenus.forEach(m => {
-        body += '<div class="menu-section">';
-        body += '<div class="menu-title">' + m.name + '</div>';
-        appState.categories.filter(c => c.menuId === m.id).forEach(cat => {
-            const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
-            if (!prods.length) return;
-            body += '<div class="cat-block">';
-            body += '<div class="cat-title">' + cat.name + '</div>';
-            prods.forEach(p => {
-                body += '<div class="prod-row">';
-                body += '<div class="prod-left"><div class="prod-name">' + p.name + '</div>';
-                if (p.desc) body += '<div class="prod-desc">' + p.desc + '</div>';
-                body += '</div>';
-                body += '<div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' €</div>';
-                body += '</div>';
-            });
-            body += '</div>';
-        });
-        body += '</div>';
-    });
-
-    // Injecter dans la zone print dédiée
-    let zone = document.getElementById('pdf-print-zone');
-    if (!zone) {
-        zone = document.createElement('div');
-        zone.id = 'pdf-print-zone';
-        document.body.appendChild(zone);
-    }
-
-    zone.innerHTML = '<div class="pdf-header">'
-        + '<div class="pdf-resto">Le Bistrot des Halles</div>'
-        + '<div class="pdf-sub">Versailles</div>'
-        + '</div>' + body;
-
-    // Ajouter class au body pour déclencher le CSS print
-    document.body.classList.add('printing-menu');
-    window.print();
-    document.body.classList.remove('printing-menu');
-}
-function exportExcel(type) {
-    const now = new Date();
-    let filtered = allOrders.filter(o => o.status !== 'cancelled');
-
-    // Appliquer la même période que les stats
-    if (appState.currentPeriod === 'today') {
-        filtered = filtered.filter(o => new Date(o.created_at).toDateString() === now.toDateString());
-    } else if (appState.currentPeriod === 'week') {
-        const week = new Date(now); week.setDate(now.getDate() - 7);
-        filtered = filtered.filter(o => new Date(o.created_at) >= week);
-    } else if (appState.currentPeriod === 'month') {
-        filtered = filtered.filter(o => {
-            const d = new Date(o.created_at);
-            return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
-        });
-    } else if (appState.currentPeriod === 'custom') {
-        const startEl = document.getElementById('date-start');
-        const endEl = document.getElementById('date-end');
-        if (startEl?.value) {
-            const start = new Date(startEl.value);
-            const end = endEl?.value ? new Date(endEl.value + 'T23:59:59') : now;
-            filtered = filtered.filter(o => { const d = new Date(o.created_at); return d >= start && d <= end; });
-        }
-    }
-
-    let wb, ws, filename;
-
-    if (type === 'orders') {
-        // Feuille commandes détaillées
-        const rows = [['N° Commande', 'Date', 'Heure', 'Table', 'Articles', 'Total (€)', 'Statut']];
-        filtered.forEach(o => {
-            const d = new Date(o.created_at);
-            const itemsStr = (o.items || []).map(i => i.qty + 'x ' + i.name).join(' | ');
-            const statusFr = { pending: 'En attente', preparing: 'En préparation', done: 'Effectué', paid: 'Payé', cancelled: 'Annulé' };
-            rows.push([
-                o.order_number || '-',
-                d.toLocaleDateString('fr-FR'),
-                d.toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}),
-                o.table_number || '-',
-                itemsStr,
-                parseFloat(o.total || 0).toFixed(2),
-                statusFr[o.status] || o.status
-            ]);
-        });
-        // Ligne total
-        const totalCA = filtered.reduce((s, o) => s + parseFloat(o.total || 0), 0);
-        rows.push(['', '', '', '', 'TOTAL', totalCA.toFixed(2), '']);
-
-        ws = XLSX.utils.aoa_to_sheet(rows);
-        ws['!cols'] = [{wch:12},{wch:12},{wch:8},{wch:14},{wch:40},{wch:10},{wch:14}];
-        filename = 'bistrot-commandes-' + now.toISOString().split('T')[0] + '.xlsx';
-
-    } else {
-        // Feuille ventes par article
-        const counts = {};
-        filtered.forEach(o => (o.items || []).forEach(i => {
-            if (!counts[i.name]) counts[i.name] = { qty: 0, total: 0, price: i.price };
-            counts[i.name].qty += i.qty || 1;
-            counts[i.name].total += (i.price || 0) * (i.qty || 1);
-        }));
-        const rows = [['Article', 'Quantité vendue', 'Prix unitaire (€)', 'Total (€)']];
-        Object.entries(counts).sort((a, b) => b[1].qty - a[1].qty).forEach(([name, data]) => {
-            rows.push([name, data.qty, parseFloat(data.price || 0).toFixed(2), parseFloat(data.total).toFixed(2)]);
-        });
-        const grandTotal = Object.values(counts).reduce((s, d) => s + d.total, 0);
-        rows.push(['TOTAL', '', '', grandTotal.toFixed(2)]);
-
-        ws = XLSX.utils.aoa_to_sheet(rows);
-        ws['!cols'] = [{wch:35},{wch:16},{wch:18},{wch:12}];
-        filename = 'bistrot-ventes-' + now.toISOString().split('T')[0] + '.xlsx';
-    }
-
-    wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, type === 'orders' ? 'Commandes' : 'Ventes');
-    XLSX.writeFile(wb, filename);
-    showToast('Export téléchargé : ' + filename);
-}
 
 // ── EXPORT EXCEL ──
 function exportExcel(type) {
     const now = new Date();
     let filtered = allOrders.filter(o => o.status !== 'cancelled');
 
-    // Appliquer la même période que les stats
     if (appState.currentPeriod === 'today') {
         filtered = filtered.filter(o => new Date(o.created_at).toDateString() === now.toDateString());
     } else if (appState.currentPeriod === 'week') {
@@ -1640,7 +1513,6 @@ function exportExcel(type) {
     const dateStr = now.toLocaleDateString('fr-FR').replace(/\//g, '-');
 
     if (type === 'orders') {
-        // Feuille 1 : Toutes les commandes
         const rows = filtered.map(o => {
             const d = new Date(o.created_at);
             return {
@@ -1654,7 +1526,6 @@ function exportExcel(type) {
             };
         });
 
-        // Ligne de résumé
         const totalCA = filtered.reduce((s, o) => s + parseFloat(o.total || 0), 0);
         rows.push({});
         rows.push({ 'N° Commande': 'TOTAL', 'Articles': filtered.length + ' commandes', 'Total (€)': totalCA.toFixed(2) });
@@ -1664,7 +1535,6 @@ function exportExcel(type) {
         XLSX.utils.book_append_sheet(wb, ws, 'Commandes');
 
     } else if (type === 'products') {
-        // Feuille 2 : Ventes par article
         const productSales = {};
         filtered.forEach(o => {
             (o.items || []).forEach(item => {
@@ -1690,7 +1560,6 @@ function exportExcel(type) {
         XLSX.utils.book_append_sheet(wb, ws, 'Ventes par article');
     }
 
-    // Feuille récap dans les deux cas
     const ca = filtered.reduce((s, o) => s + parseFloat(o.total || 0), 0);
     const recap = [
         { 'Indicateur': 'Période', 'Valeur': periodLabel },
@@ -1713,14 +1582,13 @@ const UNSPLASH_KEY = 'zgw-EvOABrrk1Mw1qckNyouUui74wXK-jTt9NkrEfwE';
 
 async function searchUnsplash(query, inputId, gridId) {
     if (!query || query.trim().length < 2) {
-        alert('Entrez d\'abord un nom d\'article.');
+        alert("Entrez d'abord un nom d'article.");
         return;
     }
     const grid = document.getElementById(gridId);
     if (!grid) return;
     grid.innerHTML = '<div class="photo-loading">Recherche en cours...</div>';
 
-    // Traduire la requête en anglais pour de meilleurs résultats
     const searchTerms = {
         'vin': 'wine glass', 'vins': 'wine', 'rouge': 'red wine', 'blanc': 'white wine',
         'rosé': 'rosé wine', 'champagne': 'champagne', 'bière': 'beer', 'cocktail': 'cocktail',
@@ -1763,8 +1631,27 @@ async function searchUnsplash(query, inputId, gridId) {
     }
 }
 
+// ── QR CODES PAR TABLE ──
 const BASE_URL = 'https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html';
 const TABLES = ['Table 1','Table 2','Table 3','Table 4','Table 5','Table 6','Table 7','Table 8','Bar','Terrasse'];
+
+function drawText(ctx, table, W, H) {
+    ctx.strokeStyle = '#b2a48f';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(20, 212); ctx.lineTo(W-20, 212);
+    ctx.stroke();
+
+    ctx.fillStyle = '#601424';
+    ctx.font = 'bold 16px Georgia';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(table, W/2, 228);
+
+    ctx.fillStyle = '#b2a48f';
+    ctx.font = '9px Georgia';
+    ctx.fillText('Le Bistrot des Halles — Versailles', W/2, 252);
+}
 
 function generateAllTableQR() {
     const grid = document.getElementById('table-qr-grid');
@@ -1793,7 +1680,6 @@ function generateAllTableQR() {
         cell.appendChild(dlBtn);
         grid.appendChild(cell);
 
-        // Générer QR dans div cachée puis composer
         const hiddenDiv = document.createElement('div');
         hiddenDiv.style.cssText = 'position:absolute;left:-9999px;top:-9999px;';
         document.body.appendChild(hiddenDiv);
@@ -1804,7 +1690,6 @@ function generateAllTableQR() {
             correctLevel: QRCode.CorrectLevel.H
         });
 
-        // Attendre puis composer
         setTimeout(() => {
             const ctx = finalCanvas.getContext('2d');
             const W = 200, H = 270;
@@ -1830,44 +1715,25 @@ function generateAllTableQR() {
             const qrCanvas = hiddenDiv.querySelector('canvas');
             if (qrCanvas) {
                 ctx.drawImage(qrCanvas, (W-145)/2, 58, 145, 145);
+                drawText(ctx, table, W, H);
+                document.body.removeChild(hiddenDiv);
             } else {
                 const qrImg = hiddenDiv.querySelector('img');
                 if (qrImg && qrImg.complete && qrImg.naturalWidth > 0) {
                     ctx.drawImage(qrImg, (W-145)/2, 58, 145, 145);
+                    drawText(ctx, table, W, H);
+                    document.body.removeChild(hiddenDiv);
                 } else if (qrImg) {
                     qrImg.onload = () => {
                         ctx.drawImage(qrImg, (W-145)/2, 58, 145, 145);
                         drawText(ctx, table, W, H);
                         document.body.removeChild(hiddenDiv);
                     };
-                    return;
                 }
             }
-
-            drawText(ctx, table, W, H);
-            document.body.removeChild(hiddenDiv);
         }, 600 + idx * 100);
     });
 }
-
-function drawText(ctx, table, W, H) {
-    ctx.strokeStyle = '#b2a48f';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(20, 212); ctx.lineTo(W-20, 212);
-    ctx.stroke();
-
-    ctx.fillStyle = '#601424';
-    ctx.font = 'bold 16px Georgia';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(table, W/2, 228);
-
-    ctx.fillStyle = '#b2a48f';
-    ctx.font = '9px Georgia';
-    ctx.fillText('Le Bistrot des Halles — Versailles', W/2, 252);
-}
-
 
 function generateQRCode() {
     const url = document.getElementById('qr-url-input').value.trim();
