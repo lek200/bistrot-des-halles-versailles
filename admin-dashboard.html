@@ -471,27 +471,16 @@
         </div>
     </div>
 
-    <div class="preview-panel" style="flex-direction:column;gap:10px;padding:12px;">
-        <div style="display:flex;gap:8px;width:100%;">
-            <a href="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html" target="_blank"
-               style="flex:1;background:var(--burgundy);color:white;padding:10px;border-radius:8px;font-size:0.8rem;font-weight:700;text-decoration:none;text-align:center;">
-               📱 Menu client ↗
-            </a>
-            <a href="https://lek200.github.io/bistrot-des-halles-versailles/print-menu.html" target="_blank"
-               style="flex:1;background:#374151;color:white;padding:10px;border-radius:8px;font-size:0.8rem;font-weight:700;text-decoration:none;text-align:center;">
-               🖨️ Imprimer ↗
-            </a>
-        </div>
-        <div id="last-sync" style="color:#9ca3af;font-size:0.72rem;text-align:center;">—</div>
-
-        <!-- APERÇU CARTE LIVE -->
-        <div style="display:flex;align-items:center;justify-content:space-between;width:100%;">
-            <span style="color:#cbd5e1;font-size:0.78rem;font-weight:700;">📋 Aperçu live</span>
-            <div style="display:flex;gap:6px;" id="preview-menu-tabs"></div>
-        </div>
-        <div style="background:#fdfaf5;border-radius:12px;border:1px solid #d4c9b0;flex:1;overflow-y:auto;width:100%;box-shadow:inset 0 0 0 1px rgba(0,0,0,0.03);">
-            <div id="preview-menu-content" style="padding:16px;"></div>
-        </div>
+    <div class="preview-panel" style="flex-direction:column;gap:14px;padding:20px;justify-content:center;">
+        <a href="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html" target="_blank"
+           style="background:var(--burgundy);color:white;padding:16px;border-radius:10px;font-size:0.95rem;font-weight:700;text-decoration:none;text-align:center;">
+           📱 Ouvrir le menu client ↗
+        </a>
+        <a href="https://lek200.github.io/bistrot-des-halles-versailles/print-menu.html" target="_blank"
+           style="background:#374151;color:white;padding:16px;border-radius:10px;font-size:0.95rem;font-weight:700;text-decoration:none;text-align:center;">
+           🖨️ Ouvrir la carte imprimable ↗
+        </a>
+        <div id="last-sync" style="color:#9ca3af;font-size:0.72rem;text-align:center;margin-top:6px;">—</div>
     </div>
 </div>
 
@@ -1074,85 +1063,6 @@ function refreshAll() {
     renderOrders();
     calculateStats();
     renderCarteTree();
-    renderPreview();
-}
-
-function renderPreview() {
-    const container = document.getElementById('preview-menu-content');
-    const tabsWrap = document.getElementById('preview-menu-tabs');
-    if (!container || !tabsWrap || !appState || !appState.menus) return;
-
-    if (!appState.menus.length) {
-        tabsWrap.innerHTML = '';
-        container.innerHTML = '<div style="color:#9ca3af;text-align:center;font-style:italic;font-size:0.82rem;padding:30px 10px;">Aucun menu créé pour le moment</div>';
-        return;
-    }
-
-    // Mémoriser l'onglet actif (par défaut le premier menu)
-    if (!window._previewActiveMenu || !appState.menus.find(m => m.id === window._previewActiveMenu)) {
-        window._previewActiveMenu = appState.menus[0].id;
-    }
-
-    // Onglets de menu
-    tabsWrap.innerHTML = '';
-    appState.menus.forEach(menu => {
-        const tab = document.createElement('button');
-        const isActive = menu.id === window._previewActiveMenu;
-        tab.textContent = menu.name;
-        tab.style.cssText = `font-size:0.68rem;font-weight:700;padding:4px 9px;border-radius:14px;border:1px solid ${isActive ? 'var(--burgundy)' : '#4b5563'};background:${isActive ? 'var(--burgundy)' : 'transparent'};color:${isActive ? 'white' : '#cbd5e1'};cursor:pointer;white-space:nowrap;`;
-        tab.onclick = () => { window._previewActiveMenu = menu.id; renderPreview(); };
-        tabsWrap.appendChild(tab);
-    });
-
-    // Contenu du menu actif
-    const menu = appState.menus.find(m => m.id === window._previewActiveMenu);
-    const cats = appState.categories.filter(c => c.menuId === menu.id);
-    container.innerHTML = '';
-
-    if (!cats.length) {
-        container.innerHTML = '<div style="color:#9ca3af;text-align:center;font-style:italic;font-size:0.8rem;padding:20px;">Aucune catégorie dans ce menu</div>';
-        return;
-    }
-
-    let hasVisibleProduct = false;
-
-    cats.forEach(cat => {
-        const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
-        if (!prods.length) return;
-        hasVisibleProduct = true;
-
-        const catDiv = document.createElement('div');
-        catDiv.style.cssText = 'margin-bottom:16px;';
-        catDiv.innerHTML = `<div style="font-family:'Playfair Display',serif;color:var(--burgundy);font-size:0.92rem;font-weight:700;border-bottom:1.5px solid #d4c9b0;padding-bottom:5px;margin-bottom:8px;">${cat.name}</div>`;
-
-        const list = document.createElement('div');
-        prods.forEach(p => {
-            const row = document.createElement('div');
-            row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px dashed #e5d9c8;';
-
-            const thumb = p.mediaUrl
-                ? `<img src="${p.mediaUrl}" style="width:32px;height:32px;border-radius:6px;object-fit:cover;flex-shrink:0;" onerror="this.style.display='none'">`
-                : `<div style="width:32px;height:32px;border-radius:6px;background:#f1ebe0;flex-shrink:0;"></div>`;
-
-            const allergenStr = (p.allergens && p.allergens.length)
-                ? `<div style="font-size:0.62rem;color:#b45309;margin-top:1px;">⚠ ${p.allergens.join(', ')}</div>`
-                : '';
-
-            row.innerHTML = thumb
-                + `<div style="flex:1;min-width:0;">
-                     <div style="font-size:0.78rem;color:#2d2325;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${p.name}</div>
-                     ${allergenStr}
-                   </div>`
-                + `<span style="color:var(--burgundy);font-weight:700;font-size:0.8rem;white-space:nowrap;">${parseFloat(p.price).toFixed(2)}€</span>`;
-            list.appendChild(row);
-        });
-        catDiv.appendChild(list);
-        container.appendChild(catDiv);
-    });
-
-    if (!hasVisibleProduct) {
-        container.innerHTML = '<div style="color:#9ca3af;text-align:center;font-style:italic;font-size:0.8rem;padding:20px;">Tous les articles de ce menu sont masqués</div>';
-    }
 }
 
 
