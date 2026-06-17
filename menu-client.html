@@ -389,6 +389,37 @@ async function init() {
 
     renderSas();
     setTimeout(restoreLang, 100);
+
+    // Vérifier les mises à jour de la carte toutes les 15 secondes
+    startMenuPolling();
+}
+
+function startMenuPolling() {
+    setInterval(async () => {
+        if (!navigator.onLine) return;
+        try {
+            const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
+            if (error || !data || !data.value) return;
+            const freshState = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+
+            // Comparer avec l'état actuel pour détecter un changement réel
+            const changed = JSON.stringify(freshState) !== JSON.stringify(appState);
+            if (!changed) return;
+
+            appState = freshState;
+            localStorage.setItem('bh_menu_cache', JSON.stringify(appState));
+            localStorage.setItem('bh_menu_cache_date', new Date().toISOString());
+
+            // Re-rendre la vue actuelle sans perdre la navigation du client
+            const sasVisible = document.getElementById('view-sas')?.style.display !== 'none';
+            if (sasVisible) {
+                renderSas();
+            } else if (currentMenuId) {
+                renderMenu(currentMenuId);
+                renderMenuSwitcher(currentMenuId);
+            }
+        } catch(e) {}
+    }, 15000);
 }
 
 async function loadState() {
@@ -925,6 +956,22 @@ async function sendOrder() {
     const table = detected || document.getElementById('table-number').value;
     if (!table) return alert('Veuillez sélectionner votre numéro de table.');
     const clientName = document.getElementById('client-name').value.trim();
+
+    // Retirer du panier les articles devenus masqués ou supprimés entre temps
+    let removedItems = [];
+    Object.keys(cart).forEach(id => {
+        const p = appState.products.find(x => x.id === id);
+        if (!p || p.isHidden) {
+            removedItems.push(p ? p.name : id);
+            delete cart[id];
+        }
+    });
+    if (removedItems.length) {
+        updateCartUI();
+        updateProductBadges();
+        alert('Certains articles ne sont plus disponibles et ont été retirés de votre panier : ' + removedItems.join(', '));
+    }
+
     const items = Object.entries(cart);
     if (!items.length) return alert('Votre panier est vide.');
 
