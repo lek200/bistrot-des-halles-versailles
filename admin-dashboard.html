@@ -1202,7 +1202,12 @@ async function saveInlineEdit(id) {
 
 async function toggleVisibility(prodId) {
     const p = appState.products.find(x => x.id === prodId);
-    if (p) { p.isHidden = !p.isHidden; await saveState(); renderInventoryList(); }
+    if (p) {
+        p.isHidden = !p.isHidden;
+        await saveState();
+        refreshAll();
+        showToast(`"${p.name}" ${p.isHidden ? 'masqué' : 'affiché'}`);
+    }
 }
 
 async function deleteProduct(prodId) {
