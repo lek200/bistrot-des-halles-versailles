@@ -968,6 +968,20 @@ async function sendOrder() {
             status: 'pending'
         };
         localStorage.setItem('bh_orders', JSON.stringify(savedOrders));
+
+        // Ajouter à l'historique de session avec le numéro de commande
+        const histEntry = {
+            orderNum: orderNum,
+            time: new Date().toLocaleTimeString('fr-FR', {hour:'2-digit',minute:'2-digit'}),
+            table: tableLabel,
+            items: orderItems,
+            total: total
+        };
+        const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
+        hist.push(histEntry);
+        sessionStorage.setItem('order_history', JSON.stringify(hist));
+        const hFab = document.getElementById('history-fab');
+        if (hFab) hFab.style.display = 'flex';
     }
 
     // Afficher le numéro dans la confirmation
@@ -1036,11 +1050,7 @@ async function sendOrder() {
     } catch(e) {
         document.getElementById('eta-text').textContent = 'En cours...';
     }
-    // Historique session
-    const histEntry = { time: new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), table: tableLabel, items: orderItems, total: total };
-    const hist = JSON.parse(sessionStorage.getItem('order_history') || '[]');
-    hist.push(histEntry);
-    sessionStorage.setItem('order_history', JSON.stringify(hist));
+
     // Afficher bouton "Mes commandes"
     const hFab = document.getElementById('history-fab');
     if (hFab) hFab.style.display = 'flex';
