@@ -495,7 +495,7 @@ function doLogin() {
     const u = document.getElementById('login-user').value.trim();
     const p = document.getElementById('login-pass').value;
     if (CREDENTIALS[u] && CREDENTIALS[u] === p) {
-        sessionStorage.setItem('bistrot_user', u);
+        localStorage.setItem('bistrot_user', u);
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('header-user').textContent = '👤 ' + u;
         initAdmin();
@@ -508,14 +508,14 @@ function doLogout() {
     pollInterval = null;
     adminInitialized = false;
     allOrders = [];
-    sessionStorage.removeItem('bistrot_user');
+    localStorage.removeItem('bistrot_user');
     document.getElementById('login-screen').style.display = 'flex';
     document.getElementById('login-user').value = '';
     document.getElementById('login-pass').value = '';
 }
 // Auto-login si session active
 document.addEventListener('DOMContentLoaded', function() {
-    const saved = sessionStorage.getItem('bistrot_user');
+    const saved = localStorage.getItem('bistrot_user');
     if (saved && CREDENTIALS[saved]) {
         document.getElementById('login-screen').style.display = 'none';
         document.getElementById('header-user').textContent = '👤 ' + saved;
