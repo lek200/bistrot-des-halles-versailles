@@ -186,7 +186,11 @@ async function startImport() {
 
     document.getElementById('status').textContent = `0 / ${total} articles à traiter`;
 
+    let quotaExceeded = false;
+
     for (let i = 0; i < updatedProducts.length; i++) {
+        if (quotaExceeded) break;
+
         const p = updatedProducts[i];
         if (mode === 'missing' && p.mediaUrl) { skipped++; continue; }
 
@@ -196,7 +200,20 @@ async function startImport() {
                 `https://api.unsplash.com/search/photos?query=${encodeURIComponent(query)}&per_page=10&orientation=squarish`,
                 { headers: { Authorization: 'Client-ID ' + UNSPLASH_KEY } }
             );
+
+            if (resp.status === 403 || resp.status === 401) {
+                quotaExceeded = true;
+                addLog(`🛑 Quota Unsplash épuisé (code ${resp.status}). Arrêt — réessayez dans 1 heure.`, 'err');
+                break;
+            }
+
             const data = await resp.json();
+
+            if (data.errors) {
+                quotaExceeded = true;
+                addLog(`🛑 Erreur Unsplash : ${data.errors.join(', ')}. Arrêt — réessayez dans 1 heure.`, 'err');
+                break;
+            }
 
             if (data.results && data.results.length > 0) {
                 // Trouver la première photo non déjà utilisée
@@ -228,10 +245,14 @@ async function startImport() {
         await new Promise(r => setTimeout(r, 1300));
     }
 
-    btn.textContent = '✅ Recherche terminée';
+    if (quotaExceeded) {
+        btn.textContent = '🛑 Arrêté — quota épuisé';
+    } else {
+        btn.textContent = '✅ Recherche terminée';
+    }
     btn.disabled = false;
     saveBtn.disabled = false;
-    addLog(`\n📊 Résumé : ${found} photos trouvées, ${skipped} ignorés`, 'ok');
+    addLog(`\n📊 Résumé : ${found} photos trouvées, ${skipped} ignorés${quotaExceeded ? ' — ARRÊTÉ PAR QUOTA, relancez dans 1h pour le reste' : ''}`, 'ok');
 }
 
 async function savePhotos() {
