@@ -506,6 +506,7 @@ function doLogin() {
 function doLogout() {
     if (pollInterval) clearInterval(pollInterval);
     pollInterval = null;
+    adminInitialized = false;
     allOrders = [];
     sessionStorage.removeItem('bistrot_user');
     document.getElementById('login-screen').style.display = 'flex';
@@ -526,7 +527,11 @@ document.addEventListener('keydown', e => {
 });
 
 // ── INIT ──
+let adminInitialized = false;
 async function initAdmin() {
+    if (adminInitialized) return;
+    adminInitialized = true;
+    if (pollInterval) { clearInterval(pollInterval); pollInterval = null; }
     await loadState();
     await loadOrders();
     subscribeToOrders();
@@ -682,7 +687,12 @@ function renderOrders() {
         if (pa !== pb) return pa - pb;
         return new Date(b.created_at) - new Date(a.created_at);
     });
-    const toShow = sorted.slice(0, 20);
+
+    // Les commandes actives (en attente / en préparation) ne sont jamais coupées,
+    // seules les commandes terminées (payées/annulées) sont limitées pour l'affichage
+    const activeOrders = sorted.filter(o => o.status === 'pending' || o.status === 'preparing' || !o.status);
+    const finishedOrders = sorted.filter(o => o.status === 'done' || o.status === 'paid' || o.status === 'cancelled');
+    const toShow = [...activeOrders, ...finishedOrders.slice(0, Math.max(20 - activeOrders.length, 5))];
     if (!toShow.length) {
         container.innerHTML = '<div class="empty-orders">Aucune commande reçue</div>';
         return;
