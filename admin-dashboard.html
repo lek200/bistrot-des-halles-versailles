@@ -1245,6 +1245,14 @@ function toggleAddForm(id) {
 function renderCarteTree() {
     const container = document.getElementById('carte-tree');
     if (!container) return;
+
+    // Mémoriser les catégories actuellement ouvertes avant de tout reconstruire
+    const openCatIds = new Set();
+    container.querySelectorAll('.tree-products.open').forEach(el => {
+        const catId = el.id.replace('tree-prods-', '');
+        openCatIds.add(catId);
+    });
+
     container.innerHTML = '';
 
     appState.menus.forEach(menu => {
@@ -1271,7 +1279,7 @@ function renderCarteTree() {
             catDiv.className = 'tree-cat';
             catDiv.innerHTML = `
                 <div class="tree-cat-header" onclick="toggleCatTree('tree-prods-${cat.id}')">
-                    <span class="tree-cat-name"><span class="tree-cat-toggle">▶</span> ${cat.name} <span style="color:var(--muted);font-weight:400;font-size:0.72rem;">(${prods.length})</span></span>
+                    <span class="tree-cat-name"><span class="tree-cat-toggle">${openCatIds.has(cat.id) ? '▼' : '▶'}</span> ${cat.name} <span style="color:var(--muted);font-weight:400;font-size:0.72rem;">(${prods.length})</span></span>
                     <div class="tree-cat-actions" onclick="event.stopPropagation()">
                         <button class="tree-btn-sm" onclick="editCatInline('${cat.id}')">✏️</button>
                         <button class="tree-btn-sm danger" onclick="deleteCat('${cat.id}')">🗑️</button>
@@ -1284,7 +1292,7 @@ function renderCarteTree() {
                 </div>`;
 
             const prodsDiv = document.createElement('div');
-            prodsDiv.className = 'tree-products';
+            prodsDiv.className = 'tree-products' + (openCatIds.has(cat.id) ? ' open' : '');
             prodsDiv.id = `tree-prods-${cat.id}`;
 
             prods.forEach((p, idx) => {
