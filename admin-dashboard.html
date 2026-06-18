@@ -218,6 +218,7 @@
         <span class="header-badge">Admin</span>
         <span id="sync-indicator" style="font-size:0.78rem;color:#9ca3af;margin-left:12px;"><span class="sync-dot" id="sync-dot"></span>Connexion...</span>
         <span id="last-sync" style="font-size:0.72rem;color:#9ca3af;margin-left:10px;">—</span>
+        <span id="poll-debug" style="font-size:0.68rem;color:#10b981;margin-left:10px;font-family:monospace;">—</span>
     </div>
     <div style="display:flex;align-items:center;gap:10px;">
         <a href="https://lek200.github.io/bistrot-des-halles-versailles/menu-client.html" target="_blank"
@@ -624,7 +625,11 @@ async function loadOrders() {
 
 function subscribeToOrders() {
     setSyncStatus(true);
+    let pollCount = 0;
     pollInterval = setInterval(async () => {
+        pollCount++;
+        const debugEl = document.getElementById('poll-debug');
+        if (debugEl) debugEl.textContent = 'Check #' + pollCount + ' — ' + new Date().toLocaleTimeString('fr-FR');
         try {
             const { data, error } = await db.from('orders').select('*').order('created_at', { ascending: false });
             if (error || !data) { setSyncStatus(false); return; }
@@ -1045,11 +1050,9 @@ function requestNotifPermission() {
 
 // ── SYNC STATUS ──
 function setSyncStatus(live) {
-    const dot = document.getElementById('sync-dot');
     const label = document.getElementById('sync-indicator');
-    if (!dot || !label) return;
-    dot.className = 'sync-dot' + (live ? ' live' : '');
-    label.innerHTML = `<span class="sync-dot ${live ? 'live' : ''}"></span>${live ? 'Temps réel' : 'Reconnexion...'}`;
+    if (!label) return;
+    label.innerHTML = `<span class="sync-dot ${live ? 'live' : ''}" id="sync-dot"></span>${live ? 'Temps réel' : 'Reconnexion...'}`;
 }
 
 // ── TOASTS ──
