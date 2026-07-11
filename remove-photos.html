@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<title>Supprimer les photos</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+body { font-family: Arial, sans-serif; background: #f3f4f6; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; }
+.box { background: white; padding: 40px; border-radius: 16px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.1); max-width: 420px; width: 90%; }
+h2 { color: #601424; margin-bottom: 10px; }
+p { color: #6b7280; margin-bottom: 24px; font-size: 0.88rem; }
+button { background: #601424; color: white; border: none; padding: 14px 32px; border-radius: 8px; font-size: 1rem; font-weight: 700; cursor: pointer; width: 100%; }
+.result { margin-top: 20px; padding: 14px; border-radius: 8px; font-weight: 600; font-size: 0.88rem; display: none; }
+.ok { background: #d1fae5; color: #065f46; }
+.err { background: #fee2e2; color: #991b1b; }
+</style>
+</head>
+<body>
+<div class="box">
+    <h2>🗑️ Supprimer les photos</h2>
+    <p>Supprime toutes les photos sauf pour les cocktails, shooters et mocktails.</p>
+    <button onclick="removePhotos()">Supprimer les photos</button>
+    <div class="result" id="result"></div>
+</div>
+<script>
+const db = supabase.createClient(
+    'https://mvxqpysdbngyazzzdbkc.supabase.co',
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHFweXNkYm5neWF6enpkYmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTgyNzgsImV4cCI6MjA5NjkzNDI3OH0.Y0v4pHdGHF6oGMP4AbTyMjIAZLJk-S7iWL0p_SaRJAs'
+);
+
+const COCKTAIL_CATS = ['c_cocktails', 'c_shooters', 'c_mocktails'];
+
+async function removePhotos() {
+    const btn = document.querySelector('button');
+    const result = document.getElementById('result');
+    btn.textContent = 'En cours...';
+    btn.disabled = true;
+
+    try {
+        const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
+        if (error || !data) throw new Error('Impossible de charger la carte');
+
+        const state = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
+        let removed = 0;
+
+        state.products = state.products.map(p => {
+            if (COCKTAIL_CATS.includes(p.catId)) return p;
+            if (p.mediaUrl) {
+                removed++;
+                return { ...p, mediaUrl: null, mediaType: null };
+            }
+            return p;
+        });
+
+        const { error: saveError } = await db.from('state').update({ value: JSON.stringify(state) }).eq('key', 'app_state');
+        if (saveError) throw saveError;
+
+        result.className = 'result ok';
+        result.textContent = '✅ ' + removed + ' photos supprimées. Cocktails, shooters et mocktails conservés.';
+        result.style.display = 'block';
+        btn.textContent = '✅ Terminé';
+    } catch(e) {
+        result.className = 'result err';
+        result.textContent = '❌ Erreur : ' + e.message;
+        result.style.display = 'block';
+        btn.textContent = 'Réessayer';
+        btn.disabled = false;
+    }
+}
+</script>
+</body>
+</html>
