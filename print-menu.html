@@ -7,130 +7,56 @@
 <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
-:root {
-    --burgundy: #601424;
-    --cream: #ede2cf;
-    --taupe: #b2a48f;
-    --dark: #2d2325;
-    --muted: #6e5d60;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-body {
-    font-family: 'Inter', sans-serif;
-    background: #f9f5ef;
-    color: var(--dark);
-    -webkit-print-color-adjust: exact;
-    print-color-adjust: exact;
-}
-
-/* TOOLBAR */
-.toolbar {
-    background: var(--burgundy);
-    color: white;
-    padding: 14px 24px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 10px;
-    position: sticky;
-    top: 0;
-    z-index: 100;
-}
-.toolbar-title { font-family: 'Playfair Display', serif; font-size: 1rem; }
-.toolbar-right { display: flex; gap: 8px; flex-wrap: wrap; }
-.btn { border: none; padding: 9px 18px; border-radius: 6px; font-size: 0.82rem; font-weight: 700; cursor: pointer; }
-.btn-print { background: #10b981; color: white; }
-.btn-pdf { background: #f59e0b; color: white; }
-.btn-email { background: #3b82f6; color: white; }
-
-/* SÉLECTEUR */
-.selector {
-    background: white;
-    border-bottom: 2px solid var(--cream);
-    padding: 14px 24px;
-    display: none;
-    gap: 10px;
-    flex-wrap: wrap;
-    align-items: center;
-}
-.selector-label { font-size: 0.82rem; font-weight: 700; color: var(--burgundy); margin-right: 6px; }
-.menu-chip { display: flex; align-items: center; gap: 6px; background: #f9f5ef; border: 1.5px solid var(--taupe); border-radius: 20px; padding: 6px 14px; cursor: pointer; font-size: 0.8rem; font-weight: 600; color: var(--burgundy); }
-.menu-chip input { accent-color: var(--burgundy); }
-.menu-chip:has(input:checked) { background: var(--burgundy); color: white; border-color: var(--burgundy); }
-
-/* CONTENU */
-.print-wrap { max-width: 800px; margin: 0 auto; padding: 40px 30px; }
-
-.carte-header { text-align: center; margin-bottom: 40px; padding-bottom: 20px; border-bottom: 3px solid var(--burgundy); }
-.carte-header h1 { font-family: 'Playfair Display', serif; color: var(--burgundy); font-size: 2.6rem; letter-spacing: 4px; margin-bottom: 6px; }
-.carte-header p { font-size: 0.88rem; color: var(--muted); font-style: italic; }
-
-.menu-block { margin-bottom: 48px; break-inside: avoid; }
-.menu-title {
-    font-family: 'Playfair Display', serif;
-    color: var(--burgundy);
-    font-size: 1.5rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    border-bottom: 2px solid var(--taupe);
-    padding-bottom: 8px;
-    margin-bottom: 20px;
-}
-.cat-block { margin-bottom: 20px; }
-.cat-title {
-    font-family: 'Playfair Display', serif;
-    color: var(--burgundy);
-    font-size: 1.05rem;
-    font-weight: 700;
-    border-bottom: 1px dashed var(--taupe);
-    padding-bottom: 5px;
-    margin-bottom: 10px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    font-size: 0.88rem;
-}
-.prod-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: 7px 0;
-    border-bottom: 1px dashed #e5d9c8;
-    gap: 16px;
-}
-.prod-left { flex: 1; min-width: 0; }
-.prod-name { font-size: 0.9rem; font-weight: 600; color: var(--dark); }
-.prod-desc { font-size: 0.75rem; color: var(--muted); font-style: italic; margin-top: 2px; line-height: 1.4; }
-.prod-price { font-weight: 700; color: var(--burgundy); white-space: nowrap; font-size: 0.9rem; }
-
-.loading { text-align: center; padding: 60px; color: #9ca3af; font-style: italic; }
-
+:root { --burgundy:#601424; --cream:#ede2cf; --taupe:#b2a48f; --dark:#2d2325; --muted:#6e5d60; }
+* { box-sizing:border-box; margin:0; padding:0; }
+body { font-family:'Inter',sans-serif; background:#f9f5ef; color:var(--dark); -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.toolbar { background:var(--burgundy); color:white; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; position:sticky; top:0; z-index:100; }
+.toolbar-title { font-family:'Playfair Display',serif; font-size:1rem; }
+.toolbar-right { display:flex; gap:8px; flex-wrap:wrap; }
+.btn { border:none; padding:9px 18px; border-radius:6px; font-size:0.82rem; font-weight:700; cursor:pointer; }
+.btn-print { background:#10b981; color:white; }
+.btn-pdf { background:#f59e0b; color:white; }
+.btn-email { background:#3b82f6; color:white; }
+.selector { background:white; border-bottom:2px solid var(--cream); padding:14px 24px; display:none; gap:10px; flex-wrap:wrap; align-items:center; }
+.selector-label { font-size:0.82rem; font-weight:700; color:var(--burgundy); margin-right:6px; }
+.menu-chip { display:flex; align-items:center; gap:6px; background:#f9f5ef; border:1.5px solid var(--taupe); border-radius:20px; padding:6px 14px; cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--burgundy); }
+.menu-chip input { accent-color:var(--burgundy); }
+.menu-chip:has(input:checked) { background:var(--burgundy); color:white; border-color:var(--burgundy); }
+.print-wrap { max-width:800px; margin:0 auto; padding:40px 30px; }
+.carte-header { text-align:center; margin-bottom:40px; padding-bottom:20px; border-bottom:3px solid var(--burgundy); }
+.carte-header h1 { font-family:'Playfair Display',serif; color:var(--burgundy); font-size:2.6rem; letter-spacing:4px; margin-bottom:6px; }
+.carte-header p { font-size:0.88rem; color:var(--muted); font-style:italic; }
+.menu-block { margin-bottom:48px; break-inside:avoid; }
+.menu-title { font-family:'Playfair Display',serif; background:var(--burgundy); color:white; font-size:1.1rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; padding:10px 16px; margin-bottom:20px; border-radius:4px; }
+.cat-block { margin-bottom:20px; }
+.cat-title { font-family:'Playfair Display',serif; color:var(--burgundy); font-size:0.9rem; font-weight:700; border-bottom:1px solid var(--taupe); padding-bottom:5px; margin-bottom:10px; text-transform:uppercase; letter-spacing:1px; }
+.prod-row { display:flex; justify-content:space-between; align-items:baseline; padding:7px 0; border-bottom:1px dashed #e5d9c8; gap:16px; }
+.prod-left { flex:1; min-width:0; }
+.prod-name { font-size:0.9rem; font-weight:600; color:var(--dark); }
+.prod-desc { font-size:0.75rem; color:var(--muted); font-style:italic; margin-top:2px; line-height:1.4; }
+.prod-price { font-weight:700; color:var(--burgundy); white-space:nowrap; font-size:0.9rem; }
+.loading { text-align:center; padding:60px; color:#9ca3af; font-style:italic; }
 @media print {
-    .toolbar, .selector { display: none !important; }
-    body { background: white; }
-    .print-wrap { padding: 20px; max-width: 100%; }
-    .menu-block { page-break-inside: avoid; }
-    .carte-header h1 { font-size: 2rem; }
+    .toolbar, .selector { display:none !important; }
+    body { background:#ede2cf; }
+    .print-wrap { padding:20px; max-width:100%; }
+    .menu-block { page-break-inside:avoid; }
 }
 </style>
 </head>
 <body>
-
 <div class="toolbar">
     <span class="toolbar-title">🖨️ Le Bistrot des Halles — Carte imprimable</span>
     <div class="toolbar-right">
-        <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer</button>
-        <button class="btn btn-pdf" onclick="downloadPDF()">⬇️ PDF</button>
+        <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer / PDF</button>
+        <button class="btn btn-pdf" onclick="downloadPDF()">⬇️ Télécharger PDF</button>
         <button class="btn btn-email" onclick="sendByEmail()">📧 Email</button>
     </div>
 </div>
-
 <div class="selector" id="selector">
     <span class="selector-label">Afficher :</span>
     <div id="menu-checkboxes" style="display:flex;gap:10px;flex-wrap:wrap;"></div>
 </div>
-
 <div class="print-wrap">
     <div class="carte-header">
         <h1>Le Bistrot des Halles</h1>
@@ -138,14 +64,12 @@ body {
     </div>
     <div id="menu-content"><div class="loading">Chargement de la carte...</div></div>
 </div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script>
 const db = supabase.createClient(
     'https://mvxqpysdbngyazzzdbkc.supabase.co',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im12eHFweXNkYm5neWF6enpkYmtjIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODEzNTgyNzgsImV4cCI6MjA5NjkzNDI3OH0.Y0v4pHdGHF6oGMP4AbTyMjIAZLJk-S7iWL0p_SaRJAs'
 );
-
 let appState = null;
 
 async function loadAndRender() {
@@ -153,7 +77,6 @@ async function loadAndRender() {
         const { data, error } = await db.from('state').select('*').eq('key', 'app_state').maybeSingle();
         if (error || !data) { document.getElementById('menu-content').innerHTML = '<div class="loading">Erreur de chargement.</div>'; return; }
         appState = typeof data.value === 'string' ? JSON.parse(data.value) : data.value;
-
         const box = document.getElementById('menu-checkboxes');
         appState.menus.forEach(m => {
             const label = document.createElement('label');
@@ -176,24 +99,16 @@ function renderMenus(menus) {
     if (!appState) return;
     let html = '';
     menus.forEach(m => {
-        const cats = appState.categories.filter(c => c.menuId === m.id);
-        const visibleCats = cats.filter(cat => appState.products.some(p => p.catId === cat.id && !p.isHidden));
+        const visibleCats = appState.categories.filter(c => c.menuId === m.id && appState.products.some(p => p.catId === c.id && !p.isHidden));
         if (!visibleCats.length) return;
-
-        html += '<div class="menu-block">';
-        html += '<div class="menu-title">' + m.name + '</div>';
+        html += '<div class="menu-block"><div class="menu-title">' + m.name + '</div>';
         visibleCats.forEach(cat => {
             const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
-            html += '<div class="cat-block">';
-            html += '<div class="cat-title">' + cat.name + '</div>';
+            html += '<div class="cat-block"><div class="cat-title">' + cat.name + '</div>';
             prods.forEach(p => {
-                html += '<div class="prod-row">';
-                html += '<div class="prod-left">';
-                html += '<div class="prod-name">' + p.name + '</div>';
+                html += '<div class="prod-row"><div class="prod-left"><div class="prod-name">' + p.name + '</div>';
                 if (p.desc) html += '<div class="prod-desc">' + p.desc + '</div>';
-                html += '</div>';
-                html += '<div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' €</div>';
-                html += '</div>';
+                html += '</div><div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' €</div></div>';
             });
             html += '</div>';
         });
@@ -214,59 +129,104 @@ function downloadPDF() {
     const doc = new jsPDF({ unit: 'mm', format: 'a4' });
     const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
     const selectedMenus = appState.menus.filter(m => checked.includes(m.id));
-    const pageW = 210, margin = 18, colW = pageW - margin * 2;
-    let y = 22;
+    const pageW = 210, margin = 16, colW = pageW - margin * 2;
 
+    const addPage = () => { doc.addPage(); return 20; };
+    let y = 0;
+
+    const initPage = () => {
+        // Fond crème sur toute la page
+        doc.setFillColor(237, 226, 207);
+        doc.rect(0, 0, 210, 297, 'F');
+        y = 22;
+    };
+
+    initPage();
+
+    // En-tête
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(22);
+    doc.setFontSize(24);
     doc.setTextColor(96, 20, 36);
-    doc.text('Le Bistrot des Halles', pageW / 2, y, { align: 'center' }); y += 7;
+    doc.text('Le Bistrot des Halles', pageW / 2, y, { align: 'center' }); y += 8;
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(9);
     doc.setTextColor(110, 93, 96);
-    doc.text('12 rue au Pain — Versailles · Notre sélection du moment', pageW / 2, y, { align: 'center' }); y += 5;
-    doc.setDrawColor(96, 20, 36); doc.setLineWidth(0.6);
-    doc.line(margin, y, pageW - margin, y); y += 10;
+    doc.text('12 rue au Pain — Versailles  ·  Notre sélection du moment', pageW / 2, y, { align: 'center' }); y += 5;
+    doc.setDrawColor(96, 20, 36); doc.setLineWidth(0.7);
+    doc.line(margin, y, pageW - margin, y); y += 12;
 
     selectedMenus.forEach(m => {
-        const cats = appState.categories.filter(c => c.menuId === m.id);
-        const visibleCats = cats.filter(cat => appState.products.some(p => p.catId === cat.id && !p.isHidden));
+        const visibleCats = appState.categories.filter(c => c.menuId === m.id && appState.products.some(p => p.catId === c.id && !p.isHidden));
         if (!visibleCats.length) return;
 
-        if (y > 258) { doc.addPage(); y = 20; }
-        doc.setFont('helvetica', 'bold'); doc.setFontSize(13); doc.setTextColor(96, 20, 36);
-        doc.text(m.name.toUpperCase(), margin, y); y += 2;
-        doc.setDrawColor(178, 164, 143); doc.setLineWidth(0.3);
-        doc.line(margin, y, pageW - margin, y); y += 8;
+        if (y > 255) { initPage(); }
+
+        // Bandeau titre menu bordeaux
+        doc.setFillColor(96, 20, 36);
+        doc.rect(margin, y - 5, colW, 9, 'F');
+        doc.setFont('helvetica', 'bold'); doc.setFontSize(11); doc.setTextColor(255, 255, 255);
+        doc.text(m.name.toUpperCase(), pageW / 2, y + 1, { align: 'center' });
+        y += 12;
 
         visibleCats.forEach(cat => {
             const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
             if (!prods.length) return;
-            if (y > 260) { doc.addPage(); y = 20; }
+
+            if (y > 262) {
+                doc.addPage();
+                doc.setFillColor(237, 226, 207);
+                doc.rect(0, 0, 210, 297, 'F');
+                y = 20;
+            }
+
+            // Titre catégorie
             doc.setFont('helvetica', 'bold'); doc.setFontSize(9); doc.setTextColor(96, 20, 36);
-            doc.text(cat.name.toUpperCase(), margin, y); y += 5;
+            doc.text(cat.name.toUpperCase(), margin, y);
+            doc.setDrawColor(178, 164, 143); doc.setLineWidth(0.2);
+            doc.line(margin, y + 1.5, pageW - margin, y + 1.5);
+            y += 7;
 
             prods.forEach(p => {
-                if (y > 270) { doc.addPage(); y = 20; }
+                if (y > 272) {
+                    doc.addPage();
+                    doc.setFillColor(237, 226, 207);
+                    doc.rect(0, 0, 210, 297, 'F');
+                    y = 20;
+                }
                 const price = parseFloat(p.price).toFixed(2) + ' \u20ac';
+
+                // Nom article
                 doc.setFont('helvetica', 'bold'); doc.setFontSize(9.5); doc.setTextColor(45, 35, 37);
-                doc.text(p.name, margin, y);
-                doc.setTextColor(96, 20, 36);
+                const nameLines = doc.splitTextToSize(p.name, colW - 22);
+                doc.text(nameLines, margin, y);
+
+                // Prix aligné à droite
+                doc.setFont('helvetica', 'bold'); doc.setTextColor(96, 20, 36);
                 doc.text(price, pageW - margin, y, { align: 'right' });
+
+                const nameH = nameLines.length * 4.5;
+                let descH = 0;
                 if (p.desc) {
-                    y += 4;
-                    doc.setFont('helvetica', 'italic'); doc.setFontSize(8); doc.setTextColor(110, 93, 96);
-                    const lines = doc.splitTextToSize(p.desc, colW - 20);
-                    doc.text(lines, margin + 3, y);
-                    y += lines.length * 4;
-                } else { y += 6; }
-                doc.setDrawColor(220, 208, 190); doc.setLineWidth(0.1);
-                doc.line(margin, y - 1, pageW - margin, y - 1);
+                    doc.setFont('helvetica', 'italic'); doc.setFontSize(7.5); doc.setTextColor(110, 93, 96);
+                    const descLines = doc.splitTextToSize(p.desc, colW - 6);
+                    doc.text(descLines, margin + 2, y + nameH);
+                    descH = descLines.length * 3.5;
+                }
+
+                y += nameH + descH + 2;
+
+                // Séparateur pointillé
+                doc.setDrawColor(212, 201, 176); doc.setLineWidth(0.1);
+                doc.setLineDash([0.8, 1], 0);
+                doc.line(margin, y, pageW - margin, y);
+                doc.setLineDash([], 0);
+                y += 3;
             });
-            y += 5;
+            y += 4;
         });
         y += 8;
     });
+
     doc.save('bistrot-des-halles-carte.pdf');
 }
 
@@ -274,13 +234,17 @@ function sendByEmail() {
     if (!appState) return alert('Carte en chargement, réessayez.');
     const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
     const selectedMenus = appState.menus.filter(m => checked.includes(m.id));
+
+    // Construire le HTML de l'email (le plus stylisé possible)
     let body = 'Le Bistrot des Halles — Versailles\n12 rue au Pain\n\n';
     selectedMenus.forEach(m => {
-        body += m.name.toUpperCase() + '\n' + '─'.repeat(40) + '\n\n';
+        body += '═══════════════════════════════\n';
+        body += m.name.toUpperCase() + '\n';
+        body += '═══════════════════════════════\n\n';
         appState.categories.filter(c => c.menuId === m.id).forEach(cat => {
             const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
             if (!prods.length) return;
-            body += cat.name + '\n';
+            body += '── ' + cat.name + ' ──\n';
             prods.forEach(p => {
                 const price = parseFloat(p.price).toFixed(2) + ' €';
                 const dots = '.'.repeat(Math.max(2, 46 - p.name.length - price.length));
@@ -291,6 +255,8 @@ function sendByEmail() {
         });
         body += '\n';
     });
+    body += 'Généré depuis le système de gestion du Bistrot des Halles.';
+
     const subject = encodeURIComponent('Carte du Bistrot des Halles — Versailles');
     window.location.href = 'mailto:?subject=' + subject + '&body=' + encodeURIComponent(body);
 }
