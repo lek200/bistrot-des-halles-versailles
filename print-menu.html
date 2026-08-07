@@ -9,9 +9,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <style>
-:root { --burgundy:#601424; --cream:#ede2cf; --taupe:#b2a48f; --dark:#2d2325; --muted:#6e5d60; }
+:root { --burgundy:#601424; --cream:#fdfaf5; --taupe:#b2a48f; --dark:#2d2325; --muted:#6e5d60; }
 * { box-sizing:border-box; margin:0; padding:0; }
-body { font-family:'Inter',sans-serif; background:#f9f5ef; color:var(--dark); }
+body { font-family:'Inter',sans-serif; background:#fdfaf5; color:var(--dark); }
 
 .toolbar { background:var(--burgundy); color:white; padding:14px 24px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; position:sticky; top:0; z-index:100; }
 .toolbar-title { font-family:'Playfair Display',serif; font-size:1rem; }
@@ -23,13 +23,13 @@ body { font-family:'Inter',sans-serif; background:#f9f5ef; color:var(--dark); }
 
 .selector { background:white; border-bottom:2px solid var(--cream); padding:14px 24px; display:none; gap:10px; flex-wrap:wrap; align-items:center; }
 .selector-label { font-size:0.82rem; font-weight:700; color:var(--burgundy); margin-right:6px; }
-.menu-chip { display:flex; align-items:center; gap:6px; background:#f9f5ef; border:1.5px solid var(--taupe); border-radius:20px; padding:6px 14px; cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--burgundy); }
+.menu-chip { display:flex; align-items:center; gap:6px; background:#fdfaf5; border:1.5px solid var(--taupe); border-radius:20px; padding:6px 14px; cursor:pointer; font-size:0.8rem; font-weight:600; color:var(--burgundy); }
 .menu-chip input { accent-color:var(--burgundy); }
 .menu-chip:has(input:checked) { background:var(--burgundy); color:white; border-color:var(--burgundy); }
 
 /* ZONE CAPTURÉE PAR html2canvas */
 #capture-zone {
-    background: var(--cream);
+    background: #fdfaf5;
     width: 794px; /* A4 en pixels à 96dpi */
     margin: 0 auto;
     padding: 50px 50px 60px;
@@ -55,7 +55,7 @@ body { font-family:'Inter',sans-serif; background:#f9f5ef; color:var(--dark); }
 /* Masquer la toolbar et selector à l'impression navigateur */
 @media print {
     .toolbar, .selector, .pdf-progress { display:none !important; }
-    body { background:var(--cream); }
+    body { background:#fdfaf5; }
     #capture-zone { width:100%; padding:20px; box-shadow:none; }
 }
 </style>
@@ -160,7 +160,7 @@ async function downloadPDF() {
         const canvas = await html2canvas(zone, {
             scale: 2, // Haute résolution
             useCORS: true,
-            backgroundColor: '#ede2cf',
+            backgroundColor: '#fdfaf5',
             logging: false,
             windowWidth: 794
         });
