@@ -188,24 +188,21 @@ async function downloadPDF() {
             doc.rect(0, 0, pageW, pageH, 'F');
         };
 
-        // PAGE 1 : En-tête + premier menu
+        // PAGE 1 : En-tête seul
         fillPage();
         let y = 8;
 
         const headerCanvas = await capture(document.querySelector('.carte-header'));
         const headerH = toH(headerCanvas);
         doc.addImage(headerCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, y, pageW, headerH);
-        y += headerH + 8;
 
         const menuBlocks = Array.from(document.querySelectorAll('.menu-block'));
 
         for (let mi = 0; mi < menuBlocks.length; mi++) {
             const block = menuBlocks[mi];
 
-            // Nouvelle page pour chaque menu (sauf si premier et place dispo)
-            if (mi > 0) {
-                doc.addPage(); fillPage(); y = 8;
-            }
+            // Chaque menu = toujours nouvelle page, sans exception
+            doc.addPage(); fillPage(); y = 8;
 
             // Titre du menu
             const titleEl = block.querySelector('.menu-title');
