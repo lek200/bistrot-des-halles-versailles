@@ -182,8 +182,8 @@ async function downloadPDF() {
             const titleCanvas = await html2canvas(titleEl, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false });
             const titleH = (titleCanvas.height * pageW) / titleCanvas.width;
 
-            // Si le titre ne tient pas sur la page courante, nouvelle page
-            if (currentY + titleH > pageH - 10) {
+            // Titre de menu = toujours nouvelle page
+            if (!firstPage) {
                 doc.addPage();
                 doc.setFillColor(253, 250, 245);
                 doc.rect(0, 0, pageW, pageH, 'F');
