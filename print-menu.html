@@ -349,18 +349,19 @@ async function downloadPDFCompact() {
     idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
         * { box-sizing:border-box; margin:0; padding:0; }
         body { font-family:Georgia,serif; background:#fdfaf5; color:#2d2325; width:794px; }
-        .page { width:794px; padding:16px 44px; background:#fdfaf5; }
+        .page { width:794px; padding:20px 50px; background:#fdfaf5; }
         .mini-header { text-align:center; padding-bottom:8px; border-bottom:2px solid #601424; margin-bottom:8px; }
-        .mini-header h1 { font-family:Georgia,serif; color:#601424; font-size:1.2rem; letter-spacing:3px; }
-        .mini-header p { font-size:0.62rem; color:#6e5d60; font-style:italic; margin-top:1px; }
-        .menu-title { font-family:Georgia,serif; background:#601424; color:white; font-size:0.82rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; padding:6px 12px; margin-bottom:8px; }
-        .cat-block { margin-bottom:7px; }
-        .cat-title { color:#601424; font-size:0.62rem; font-weight:700; border-bottom:1px solid #b2a48f; padding-bottom:2px; margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
-        .prod-row { display:flex; justify-content:space-between; align-items:flex-start; padding:2px 0 3px; border-bottom:1px solid #d4c9b0; gap:10px; }
+        .mini-header h1 { font-family:Georgia,serif; color:#601424; font-size:1.3rem; letter-spacing:3px; }
+        .mini-header p { font-size:0.65rem; color:#6e5d60; font-style:italic; margin-top:1px; }
+        .menu-title { font-family:Georgia,serif; background:#601424; color:white; font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; padding:7px 14px; margin-bottom:8px; }
+        .cont-title { font-family:Georgia,serif; background:#8a2030; color:white; font-size:0.75rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:4px 14px; margin-bottom:8px; font-style:italic; }
+        .cat-block { margin-bottom:8px; }
+        .cat-title { color:#601424; font-size:0.68rem; font-weight:700; border-bottom:1px solid #b2a48f; padding-bottom:2px; margin-bottom:4px; text-transform:uppercase; letter-spacing:1px; }
+        .prod-row { display:flex; justify-content:space-between; align-items:flex-start; padding:3px 0 4px; border-bottom:1px solid #d4c9b0; gap:12px; }
         .prod-left { flex:1; min-width:0; }
-        .prod-name { font-size:0.62rem; font-weight:600; color:#2d2325; }
-        .prod-desc { font-size:0.54rem; color:#6e5d60; font-style:italic; margin-top:1px; line-height:1.2; }
-        .prod-price { font-weight:700; color:#601424; white-space:nowrap; font-size:0.62rem; flex-shrink:0; }
+        .prod-name { font-size:0.72rem; font-weight:600; color:#2d2325; }
+        .prod-desc { font-size:0.6rem; color:#6e5d60; font-style:italic; margin-top:1px; line-height:1.3; }
+        .prod-price { font-weight:700; color:#601424; white-space:nowrap; font-size:0.72rem; flex-shrink:0; }
     </style></head><body></body></html>`);
     idoc.close();
     await new Promise(r => setTimeout(r, 800));
@@ -368,6 +369,28 @@ async function downloadPDFCompact() {
     const cap = async (el) => {
         await new Promise(r => setTimeout(r, 150));
         return html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false, allowTaint: true });
+    };
+
+    const A4_PX = 1123;
+
+    const buildPage = (menuName, catsHTML, isContinu) =>
+        '<div class="page" id="pg">'
+        + '<div class="mini-header"><h1>Le Bistrot des Halles</h1><p>12 rue au Pain — Versailles</p></div>'
+        + '<div class="' + (isContinu ? 'cont-title' : 'menu-title') + '">' + menuName + (isContinu ? ' (suite)' : '') + '</div>'
+        + catsHTML + '</div>';
+
+    const flushPage = async (doc, menuName, catsHTML, isContinu, firstPage) => {
+        if (!firstPage) doc.addPage();
+        doc.setFillColor(253, 250, 245);
+        doc.rect(0, 0, 210, 297, 'F');
+        idoc.body.innerHTML = buildPage(menuName, catsHTML, isContinu);
+        await new Promise(r => setTimeout(r, 150));
+        const pg = idoc.getElementById('pg');
+        const canvas = await cap(pg);
+        const imgH = (canvas.height * 210) / canvas.width;
+        doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, imgH);
+        idoc.body.innerHTML = '';
+        return false;
     };
 
     try {
@@ -382,35 +405,38 @@ async function downloadPDFCompact() {
             const visibleCats = cats.filter(cat => appState.products.some(p => p.catId === cat.id && !p.isHidden));
             if (!visibleCats.length) continue;
 
-            let catsHTML = '';
-            visibleCats.forEach(cat => {
+            const allCatsHTML = visibleCats.map(cat => {
                 const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
-                catsHTML += '<div class="cat-block"><div class="cat-title">' + cat.name + '</div>';
+                let h = '<div class="cat-block"><div class="cat-title">' + cat.name + '</div>';
                 prods.forEach(p => {
-                    catsHTML += '<div class="prod-row"><div class="prod-left"><div class="prod-name">' + p.name + '</div>'
+                    h += '<div class="prod-row"><div class="prod-left"><div class="prod-name">' + p.name + '</div>'
                         + (p.desc ? '<div class="prod-desc">' + p.desc + '</div>' : '')
                         + '</div><div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' €</div></div>';
                 });
-                catsHTML += '</div>';
+                return h + '</div>';
             });
 
-            idoc.body.innerHTML = '<div class="page" id="pg">'
-                + '<div class="mini-header"><h1>Le Bistrot des Halles</h1><p>12 rue au Pain — Versailles</p></div>'
-                + '<div class="menu-title">' + menu.name + '</div>'
-                + catsHTML + '</div>';
+            let currentHTML = '';
+            let isContinu = false;
 
-            await new Promise(r => setTimeout(r, 150));
+            for (let ci = 0; ci < allCatsHTML.length; ci++) {
+                const testHTML = currentHTML + allCatsHTML[ci];
+                idoc.body.innerHTML = buildPage(menu.name, testHTML, isContinu);
+                await new Promise(r => setTimeout(r, 80));
+                const pg = idoc.getElementById('pg');
 
-            if (!firstPage) doc.addPage();
-            firstPage = false;
-            doc.setFillColor(253, 250, 245);
-            doc.rect(0, 0, 210, 297, 'F');
+                if (pg.offsetHeight > A4_PX && currentHTML !== '') {
+                    firstPage = await flushPage(doc, menu.name, currentHTML, isContinu, firstPage);
+                    currentHTML = allCatsHTML[ci];
+                    isContinu = true;
+                } else {
+                    currentHTML = testHTML;
+                }
+            }
 
-            const pg = idoc.getElementById('pg');
-            const canvas = await cap(pg);
-            // Forcer tout le contenu sur une seule page A4 (297mm)
-            doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
-            idoc.body.innerHTML = '';
+            if (currentHTML) {
+                firstPage = await flushPage(doc, menu.name, currentHTML, isContinu, firstPage);
+            }
         }
 
         doc.save('bistrot-des-halles-carte-compact.pdf');
