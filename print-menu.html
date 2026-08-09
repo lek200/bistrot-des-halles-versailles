@@ -52,7 +52,19 @@ body { font-family:'Inter',sans-serif; background:#fdfaf5; color:var(--dark); }
 .loading { text-align:center; padding:60px; color:#9ca3af; font-style:italic; }
 .pdf-progress { background:#1f2937; color:white; padding:12px 20px; border-radius:8px; margin:16px auto; max-width:400px; text-align:center; font-size:0.85rem; display:none; }
 
-/* Masquer la toolbar et selector à l'impression navigateur */
+/* POPUP FORMAT PDF */
+.pdf-popup-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:1000; align-items:center; justify-content:center; }
+.pdf-popup-overlay.open { display:flex; }
+.pdf-popup { background:white; border-radius:14px; padding:28px; width:320px; box-shadow:0 20px 60px rgba(0,0,0,0.3); }
+.pdf-popup h3 { font-family:'Playfair Display',serif; color:var(--burgundy); font-size:1.1rem; margin-bottom:6px; }
+.pdf-popup p { font-size:0.78rem; color:#6b7280; margin-bottom:20px; }
+.pdf-format-btn { display:flex; align-items:flex-start; gap:12px; padding:14px; border:2px solid #e5e7eb; border-radius:10px; cursor:pointer; margin-bottom:10px; transition:all 0.15s; background:white; width:100%; text-align:left; }
+.pdf-format-btn:hover { border-color:var(--burgundy); background:#fdfaf5; }
+.pdf-format-btn .icon { font-size:1.5rem; flex-shrink:0; }
+.pdf-format-btn .label { font-weight:700; font-size:0.88rem; color:var(--dark); }
+.pdf-format-btn .desc { font-size:0.75rem; color:#6b7280; margin-top:2px; }
+.pdf-popup-cancel { width:100%; padding:10px; border:none; background:none; color:#9ca3af; font-size:0.82rem; cursor:pointer; margin-top:4px; }
+.pdf-popup-cancel:hover { color:var(--dark); }
 @media print {
     .toolbar, .selector, .pdf-progress { display:none !important; }
     body { background:#fdfaf5; }
@@ -66,7 +78,7 @@ body { font-family:'Inter',sans-serif; background:#fdfaf5; color:var(--dark); }
     <span class="toolbar-title">🖨️ Le Bistrot des Halles — Carte</span>
     <div class="toolbar-right">
         <button class="btn btn-print" onclick="window.print()">🖨️ Imprimer</button>
-        <button class="btn btn-pdf" id="btn-pdf" onclick="downloadPDF()">⬇️ Télécharger PDF</button>
+        <button class="btn btn-pdf" id="btn-pdf" onclick="showFormatPicker()">⬇️ Télécharger PDF</button>
     </div>
 </div>
 
@@ -76,6 +88,29 @@ body { font-family:'Inter',sans-serif; background:#fdfaf5; color:var(--dark); }
 </div>
 
 <div class="pdf-progress" id="pdf-progress">⏳ Génération du PDF en cours...</div>
+
+<!-- POPUP FORMAT PDF -->
+<div class="pdf-popup-overlay" id="pdf-popup-overlay">
+    <div class="pdf-popup">
+        <h3>Choisir le format</h3>
+        <p>Sélectionne le format du PDF à télécharger.</p>
+        <button class="pdf-format-btn" onclick="selectFormat('pages')">
+            <span class="icon">📄</span>
+            <div>
+                <div class="label">Par menu</div>
+                <div class="desc">Une page par menu, en-tête répété. Idéal pour imprimer chaque menu séparément.</div>
+            </div>
+        </button>
+        <button class="pdf-format-btn" onclick="selectFormat('compact')">
+            <span class="icon">📋</span>
+            <div>
+                <div class="label">Version compacte — 3 pages</div>
+                <div class="desc">Tous les menus condensés en 3 pages max avec police réduite.</div>
+            </div>
+        </button>
+        <button class="pdf-popup-cancel" onclick="closeFormatPicker()">Annuler</button>
+    </div>
+</div>
 
 <div id="capture-zone">
     <div id="menu-content"><div class="loading">Chargement de la carte...</div></div>
@@ -143,6 +178,23 @@ function applySelection() {
     const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
     const selected = appState ? appState.menus.filter(m => checked.includes(m.id)) : [];
     renderMenus(selected.length ? selected : (appState ? appState.menus : []));
+}
+
+function showFormatPicker() {
+    document.getElementById('pdf-popup-overlay').classList.add('open');
+}
+
+function closeFormatPicker() {
+    document.getElementById('pdf-popup-overlay').classList.remove('open');
+}
+
+function selectFormat(format) {
+    closeFormatPicker();
+    if (format === 'compact') {
+        downloadPDFCompact();
+    } else {
+        downloadPDF();
+    }
 }
 
 async function downloadPDF() {
@@ -279,6 +331,111 @@ async function downloadPDF() {
     }
 }
 
+
+async function downloadPDFCompact() {
+    const btn = document.getElementById('btn-pdf');
+    const progress = document.getElementById('pdf-progress');
+    btn.disabled = true;
+    btn.textContent = '⏳ En cours...';
+    progress.style.display = 'block';
+
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:3000px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+    await new Promise(r => setTimeout(r, 200));
+
+    const idoc = iframe.contentDocument;
+    idoc.open();
+    idoc.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><style>
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { font-family:Georgia,serif; background:#fdfaf5; color:#2d2325; width:794px; }
+        .page { width:794px; padding:16px 44px; background:#fdfaf5; }
+        .mini-header { text-align:center; padding-bottom:8px; border-bottom:2px solid #601424; margin-bottom:8px; }
+        .mini-header h1 { font-family:Georgia,serif; color:#601424; font-size:1.3rem; letter-spacing:3px; }
+        .mini-header p { font-size:0.65rem; color:#6e5d60; font-style:italic; margin-top:1px; }
+        .menu-title { background:#601424; color:white; font-size:0.85rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; padding:6px 12px; margin:8px 0 6px; }
+        .cat-title { color:#601424; font-size:0.68rem; font-weight:700; border-bottom:1px solid #b2a48f; padding-bottom:2px; margin:5px 0 4px; text-transform:uppercase; letter-spacing:1px; }
+        .prod-row { display:flex; justify-content:space-between; align-items:flex-start; padding:2px 0 3px; border-bottom:1px solid #d4c9b0; gap:10px; }
+        .prod-name { font-size:0.68rem; font-weight:600; }
+        .prod-desc { font-size:0.58rem; color:#6e5d60; font-style:italic; }
+        .prod-price { font-weight:700; color:#601424; font-size:0.68rem; white-space:nowrap; flex-shrink:0; }
+    </style></head><body></body></html>`);
+    idoc.close();
+    await new Promise(r => setTimeout(r, 800));
+
+    const cap = async (el) => {
+        await new Promise(r => setTimeout(r, 150));
+        return html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false });
+    };
+
+    const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
+    const selectedMenus = appState.menus.filter(m => checked.includes(m.id));
+
+    try {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+        const A4_PX = 1123;
+        let firstPage = true;
+
+        // Regrouper tous les menus sélectionnés sur le minimum de pages
+        let currentHTML = `<div class="page" id="pg"><div class="mini-header"><h1>Le Bistrot des Halles</h1><p>12 rue au Pain — Versailles</p></div>`;
+
+        const flushPage = async (html) => {
+            if (!firstPage) doc.addPage();
+            firstPage = false;
+            doc.setFillColor(253, 250, 245);
+            doc.rect(0, 0, 210, 297, 'F');
+            idoc.body.innerHTML = html + '</div>';
+            await new Promise(r => setTimeout(r, 150));
+            const pg = idoc.getElementById('pg');
+            const canvas = await cap(pg);
+            const imgH = (canvas.height * 210) / canvas.width;
+            doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, imgH);
+        };
+
+        for (const menu of selectedMenus) {
+            const cats = appState.categories.filter(c => c.menuId === menu.id);
+            const visibleCats = cats.filter(cat => appState.products.some(p => p.catId === cat.id && !p.isHidden));
+            if (!visibleCats.length) continue;
+
+            const menuHTML = `<div class="menu-title">${menu.name}</div>` +
+                visibleCats.map(cat => {
+                    const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
+                    return `<div class="cat-title">${cat.name}</div>` +
+                        prods.map(p => `<div class="prod-row">
+                            <div><div class="prod-name">${p.name}</div>${p.desc ? `<div class="prod-desc">${p.desc}</div>` : ''}</div>
+                            <div class="prod-price">${parseFloat(p.price).toFixed(2)} €</div>
+                        </div>`).join('');
+                }).join('');
+
+            // Tester si le menu tient sur la page courante
+            const testHTML = currentHTML + menuHTML;
+            idoc.body.innerHTML = testHTML + '</div>';
+            await new Promise(r => setTimeout(r, 120));
+            const pg = idoc.getElementById('pg');
+
+            if (pg.offsetHeight > A4_PX && currentHTML !== `<div class="page" id="pg"><div class="mini-header"><h1>Le Bistrot des Halles</h1><p>12 rue au Pain — Versailles</p></div>`) {
+                // Flusher la page courante et recommencer
+                await flushPage(currentHTML);
+                currentHTML = `<div class="page" id="pg"><div class="mini-header"><h1>Le Bistrot des Halles</h1><p>12 rue au Pain — Versailles</p></div>` + menuHTML;
+            } else {
+                currentHTML = testHTML;
+            }
+        }
+
+        // Flusher la dernière page
+        await flushPage(currentHTML);
+
+        doc.save('bistrot-des-halles-carte-compact.pdf');
+    } catch(e) {
+        alert('Erreur : ' + e.message);
+    } finally {
+        document.body.removeChild(iframe);
+        btn.disabled = false;
+        btn.textContent = '⬇️ Télécharger PDF';
+        progress.style.display = 'none';
+    }
+}
 
 loadAndRender();
 </script>
