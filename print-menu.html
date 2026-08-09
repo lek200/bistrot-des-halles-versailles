@@ -231,61 +231,67 @@ async function downloadPDFCompact() {
     const btn = document.getElementById('btn-pdf');
     const progress = document.getElementById('pdf-progress');
     btn.disabled = true; btn.textContent = '⏳ En cours...'; progress.style.display = 'block';
+
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:2000px;border:none;visibility:hidden;';
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:3000px;border:none;visibility:hidden;';
     document.body.appendChild(iframe);
     await new Promise(r => setTimeout(r, 200));
+
     const idoc = iframe.contentDocument;
     idoc.open();
-    idoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>* { box-sizing:border-box; margin:0; padding:0; } body { font-family:Georgia,serif; background:#fdfaf5; color:#2d2325; width:794px; } .page { width:794px; padding:10px 38px; background:#fdfaf5; } .mini-header { text-align:center; padding-bottom:5px; border-bottom:2px solid #601424; margin-bottom:5px; } .mini-header h1 { font-family:Georgia,serif; color:#601424; font-size:1rem; letter-spacing:3px; } .mini-header p { font-size:0.55rem; color:#6e5d60; font-style:italic; margin-top:1px; } .menu-title { font-family:Georgia,serif; background:#601424; color:white; font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; padding:4px 10px; margin-bottom:5px; } .cont-title { font-family:Georgia,serif; background:#8a2030; color:white; font-size:0.6rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:3px 10px; margin-bottom:5px; font-style:italic; } .cat-block { margin-bottom:4px; } .cat-title { color:#601424; font-size:0.55rem; font-weight:700; border-bottom:1px solid #b2a48f; padding-bottom:1px; margin-bottom:3px; text-transform:uppercase; letter-spacing:1px; } .prod-row { display:flex; justify-content:space-between; align-items:flex-start; padding:1px 0 2px; border-bottom:1px solid #d4c9b0; gap:8px; } .prod-left { flex:1; min-width:0; } .prod-name { font-size:0.57rem; font-weight:600; color:#2d2325; } .prod-desc { font-size:0.48rem; color:#6e5d60; font-style:italic; line-height:1.2; } .prod-price { font-weight:700; color:#601424; white-space:nowrap; font-size:0.57rem; flex-shrink:0; } </style></head><body></body></html>');
+    idoc.write('<!DOCTYPE html><html><head><meta charset="UTF-8"><style>* {box-sizing:border-box;margin:0;padding:0;} body {font-family:Georgia,serif;background:#fdfaf5;color:#2d2325;width:794px;} .page {width:794px;padding:20px 50px;background:#fdfaf5;} .mini-header {text-align:center;padding-bottom:8px;border-bottom:2px solid #601424;margin-bottom:8px;} .mini-header h1 {font-family:Georgia,serif;color:#601424;font-size:1.2rem;letter-spacing:3px;} .mini-header p {font-size:0.62rem;color:#6e5d60;font-style:italic;margin-top:1px;} .menu-title {background:#601424;color:white;font-size:0.8rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;padding:6px 12px;margin-bottom:8px;} .cat-title {color:#601424;font-size:0.62rem;font-weight:700;border-bottom:1px solid #b2a48f;padding-bottom:2px;margin-bottom:4px;margin-top:6px;text-transform:uppercase;letter-spacing:1px;} .prod-row {display:flex;justify-content:space-between;align-items:flex-start;padding:2px 0;border-bottom:1px solid #d4c9b0;gap:10px;} .prod-name {font-size:0.6rem;font-weight:600;color:#2d2325;} .prod-desc {font-size:0.52rem;color:#6e5d60;font-style:italic;line-height:1.2;} .prod-price {font-weight:700;color:#601424;white-space:nowrap;font-size:0.6rem;flex-shrink:0;}</style></head><body></body></html>');
     idoc.close();
     await new Promise(r => setTimeout(r, 800));
-    const cap = async (el) => { await new Promise(r => setTimeout(r, 150)); return html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false, allowTaint: true }); };
-    const A4_PX = 1123;
-    const buildPage = (menuName, catsHTML, isContinu) => '<div class="page" id="pg"><div class="mini-header"><h1>Le Bistrot des Halles</h1><p>12 rue au Pain \u2014 Versailles</p></div><div class="' + (isContinu ? 'cont-title' : 'menu-title') + '">' + menuName + (isContinu ? ' (suite)' : '') + '</div>' + catsHTML + '</div>';
-    const flushPage = async (doc, menuName, catsHTML, isContinu, firstPage) => {
-        if (!firstPage) doc.addPage();
-        doc.setFillColor(253, 250, 245); doc.rect(0, 0, 210, 297, 'F');
-        idoc.body.innerHTML = buildPage(menuName, catsHTML, isContinu);
+
+    const cap = async (el) => {
         await new Promise(r => setTimeout(r, 150));
-        const pg = idoc.getElementById('pg');
-        const canvas = await cap(pg);
-        const imgH = (canvas.height * 210) / canvas.width;
-        doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, imgH);
-        idoc.body.innerHTML = ''; return false;
+        return html2canvas(el, {scale:2, useCORS:true, backgroundColor:'#fdfaf5', logging:false, allowTaint:true});
     };
+
     try {
-        const { jsPDF } = window.jspdf;
-        const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+        const {jsPDF} = window.jspdf;
+        const doc = new jsPDF({unit:'mm', format:'a4', orientation:'portrait'});
         const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
         const selectedMenus = appState.menus.filter(m => checked.includes(m.id));
         let firstPage = true;
+
         for (const menu of selectedMenus) {
             const cats = appState.categories.filter(c => c.menuId === menu.id);
             const visibleCats = cats.filter(cat => appState.products.some(p => p.catId === cat.id && !p.isHidden));
             if (!visibleCats.length) continue;
-            const allCatsHTML = visibleCats.map(cat => {
+
+            // Construire tout le contenu du menu
+            let html = '<div class="page" id="pg"><div class="mini-header"><h1>Le Bistrot des Halles</h1><p>12 rue au Pain — Versailles</p></div><div class="menu-title">' + menu.name + '</div>';
+            visibleCats.forEach(cat => {
                 const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
-                let h = '<div class="cat-block"><div class="cat-title">' + cat.name + '</div>';
-                prods.forEach(p => { h += '<div class="prod-row"><div class="prod-left"><div class="prod-name">' + p.name + '</div>' + (p.desc ? '<div class="prod-desc">' + p.desc + '</div>' : '') + '</div><div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' \u20ac</div></div>'; });
-                return h + '</div>';
+                html += '<div class="cat-title">' + cat.name + '</div>';
+                prods.forEach(p => {
+                    html += '<div class="prod-row"><div><div class="prod-name">' + p.name + '</div>' + (p.desc ? '<div class="prod-desc">' + p.desc + '</div>' : '') + '</div><div class="prod-price">' + parseFloat(p.price).toFixed(2) + ' €</div></div>';
+                });
             });
-            let currentHTML = ''; let isContinu = false;
-            for (let ci = 0; ci < allCatsHTML.length; ci++) {
-                const testHTML = currentHTML + allCatsHTML[ci];
-                idoc.body.innerHTML = buildPage(menu.name, testHTML, isContinu);
-                await new Promise(r => setTimeout(r, 80));
-                const pg = idoc.getElementById('pg');
-                if (pg.offsetHeight > A4_PX && currentHTML !== '') {
-                    firstPage = await flushPage(doc, menu.name, currentHTML, isContinu, firstPage);
-                    currentHTML = allCatsHTML[ci]; isContinu = true;
-                } else { currentHTML = testHTML; }
-            }
-            if (currentHTML) { firstPage = await flushPage(doc, menu.name, currentHTML, isContinu, firstPage); }
+            html += '</div>';
+
+            idoc.body.innerHTML = html;
+            await new Promise(r => setTimeout(r, 150));
+
+            if (!firstPage) doc.addPage();
+            firstPage = false;
+            doc.setFillColor(253, 250, 245);
+            doc.rect(0, 0, 210, 297, 'F');
+
+            const pg = idoc.getElementById('pg');
+            const canvas = await cap(pg);
+            // Toujours forcer sur une seule page A4
+            doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, 297);
+            idoc.body.innerHTML = '';
         }
+
         doc.save('bistrot-des-halles-carte-compact.pdf');
-    } catch(e) { alert('Erreur : ' + e.message); } finally {
-        document.body.removeChild(iframe); btn.disabled = false; btn.textContent = '\u2b07\ufe0f T\u00e9l\u00e9charger PDF'; progress.style.display = 'none';
+    } catch(e) {
+        alert('Erreur : ' + e.message);
+    } finally {
+        document.body.removeChild(iframe);
+        btn.disabled = false; btn.textContent = '⬇️ Télécharger PDF'; progress.style.display = 'none';
     }
 }
 
