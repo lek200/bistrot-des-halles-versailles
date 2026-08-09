@@ -152,69 +152,110 @@ async function downloadPDF() {
     btn.textContent = '⏳ En cours...';
     progress.style.display = 'block';
 
+    // Sauvegarder les styles originaux
+    const captureZone = document.getElementById('capture-zone');
+    const originalStyles = {};
+
+    function setMenuFontSize(menuBlock, size) {
+        menuBlock.querySelectorAll('.cat-title').forEach(el => el.style.fontSize = (size * 0.82) + 'px');
+        menuBlock.querySelectorAll('.prod-name').forEach(el => el.style.fontSize = size + 'px');
+        menuBlock.querySelectorAll('.prod-desc').forEach(el => el.style.fontSize = (size * 0.78) + 'px');
+        menuBlock.querySelectorAll('.prod-price').forEach(el => el.style.fontSize = size + 'px');
+    }
+
+    function resetStyles() {
+        document.querySelectorAll('.cat-title, .prod-name, .prod-desc, .prod-price').forEach(el => {
+            el.style.fontSize = '';
+        });
+    }
+
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
         const pageW = 210;
         const pageH = 297;
-        const margin = 0;
-        let currentY = 0;
-        let firstPage = true;
+        const scale = 2;
 
-        // Capturer l'en-tête
-        const header = document.querySelector('.carte-header');
-        const headerCanvas = await html2canvas(header, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false });
-        const headerH = (headerCanvas.height * pageW) / headerCanvas.width;
+        const capture = async (el) => {
+            await new Promise(r => setTimeout(r, 60));
+            return html2canvas(el, { scale, useCORS: true, backgroundColor: '#fdfaf5', logging: false });
+        };
 
-        if (!firstPage) doc.addPage();
-        firstPage = false;
-        doc.setFillColor(253, 250, 245);
-        doc.rect(0, 0, pageW, pageH, 'F');
-        doc.addImage(headerCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, currentY, pageW, headerH);
-        currentY += headerH + 6;
+        const toH = (canvas) => (canvas.height * pageW) / canvas.width;
 
-        // Capturer chaque menu-block séparément
-        const menuBlocks = document.querySelectorAll('.menu-block');
+        const fillPage = () => {
+            doc.setFillColor(253, 250, 245);
+            doc.rect(0, 0, pageW, pageH, 'F');
+        };
 
-        for (const block of menuBlocks) {
-            // Capturer le titre du menu seul
+        // PAGE 1 : En-tête + premier menu
+        fillPage();
+        let y = 8;
+
+        const headerCanvas = await capture(document.querySelector('.carte-header'));
+        const headerH = toH(headerCanvas);
+        doc.addImage(headerCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, y, pageW, headerH);
+        y += headerH + 8;
+
+        const menuBlocks = Array.from(document.querySelectorAll('.menu-block'));
+
+        for (let mi = 0; mi < menuBlocks.length; mi++) {
+            const block = menuBlocks[mi];
+
+            // Nouvelle page pour chaque menu (sauf si premier et place dispo)
+            if (mi > 0) {
+                doc.addPage(); fillPage(); y = 8;
+            }
+
+            // Titre du menu
             const titleEl = block.querySelector('.menu-title');
-            const titleCanvas = await html2canvas(titleEl, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false });
-            const titleH = (titleCanvas.height * pageW) / titleCanvas.width;
+            const titleCanvas = await capture(titleEl);
+            const titleH = toH(titleCanvas);
+            doc.addImage(titleCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, y, pageW, titleH);
+            y += titleH + 6;
 
-            // Titre de menu = toujours nouvelle page
-            if (!firstPage) {
-                doc.addPage();
-                doc.setFillColor(253, 250, 245);
-                doc.rect(0, 0, pageW, pageH, 'F');
-                currentY = 8;
-            }
-            doc.addImage(titleCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, currentY, pageW, titleH);
-            currentY += titleH + 4;
+            // Mesurer le contenu du menu à taille normale
+            const contentEls = Array.from(block.querySelectorAll('.cat-block'));
+            let fontSize = 8.5; // taille de base pour PDF
+            setMenuFontSize(block, fontSize);
 
-            // Capturer chaque catégorie séparément
-            const catBlocks = block.querySelectorAll('.cat-block');
-            for (const cat of catBlocks) {
-                const catCanvas = await html2canvas(cat, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false });
-                const catH = (catCanvas.height * pageW) / catCanvas.width;
+            // Réduire jusqu'à ce que tout tienne sur l'espace restant de la page
+            let fits = false;
+            while (fontSize >= 5.5 && !fits) {
+                setMenuFontSize(block, fontSize);
+                await new Promise(r => setTimeout(r, 60));
 
-                // Si la catégorie ne tient pas, nouvelle page
-                if (currentY + catH > pageH - 10) {
-                    doc.addPage();
-                    doc.setFillColor(253, 250, 245);
-                    doc.rect(0, 0, pageW, pageH, 'F');
-                    currentY = 8;
+                let totalH = 0;
+                for (const cat of contentEls) {
+                    const c = await capture(cat);
+                    totalH += toH(c) + 4;
                 }
-                doc.addImage(catCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, currentY, pageW, catH);
-                currentY += catH + 3;
+
+                if (y + totalH <= pageH - 8) {
+                    fits = true;
+                } else {
+                    fontSize -= 0.5;
+                }
             }
-            currentY += 8;
+
+            // Placer chaque catégorie
+            for (const cat of contentEls) {
+                const catCanvas = await capture(cat);
+                const catH = toH(catCanvas);
+                doc.addImage(catCanvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, y, pageW, catH);
+                y += catH + 4;
+            }
+
+            resetStyles();
+            await new Promise(r => setTimeout(r, 60));
         }
 
         doc.save('bistrot-des-halles-carte.pdf');
     } catch(e) {
-        alert('Erreur lors de la génération du PDF : ' + e.message);
+        alert('Erreur : ' + e.message);
+        resetStyles();
     } finally {
+        resetStyles();
         btn.disabled = false;
         btn.textContent = '⬇️ Télécharger PDF';
         progress.style.display = 'none';
