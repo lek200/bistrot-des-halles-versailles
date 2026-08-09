@@ -39,7 +39,7 @@ body { font-family:'Inter',sans-serif; background:#fdfaf5; color:var(--dark); }
 .carte-header h1 { font-family:'Playfair Display',serif; color:var(--burgundy); font-size:2.4rem; letter-spacing:4px; margin-bottom:6px; }
 .carte-header p { font-size:0.85rem; color:var(--muted); font-style:italic; }
 
-.menu-block { margin-bottom:40px; }
+.menu-block { margin-bottom:60px; border-top:4px solid var(--burgundy); padding-top:40px; }
 .menu-title { font-family:'Playfair Display',serif; background:var(--burgundy); color:white; font-size:1.05rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; padding:10px 16px; margin-bottom:18px; border-radius:3px; }
 .cat-block { margin-bottom:16px; }
 .cat-title { font-family:'Playfair Display',serif; color:var(--burgundy); font-size:0.82rem; font-weight:700; border-bottom:1px solid var(--taupe); padding-bottom:4px; margin-bottom:8px; text-transform:uppercase; letter-spacing:1px; }
@@ -78,10 +78,6 @@ body { font-family:'Inter',sans-serif; background:#fdfaf5; color:var(--dark); }
 <div class="pdf-progress" id="pdf-progress">⏳ Génération du PDF en cours...</div>
 
 <div id="capture-zone">
-    <div class="carte-header">
-        <h1>Le Bistrot des Halles</h1>
-        <p>12 rue au Pain — Versailles &nbsp;·&nbsp; Notre sélection du moment</p>
-    </div>
     <div id="menu-content"><div class="loading">Chargement de la carte...</div></div>
 </div>
 
@@ -122,7 +118,12 @@ function renderMenus(menus) {
     menus.forEach(m => {
         const visibleCats = appState.categories.filter(c => c.menuId === m.id && appState.products.some(p => p.catId === c.id && !p.isHidden));
         if (!visibleCats.length) return;
-        html += '<div class="menu-block" data-menu-id="' + m.id + '"><div class="menu-title">' + m.name + '</div>';
+        html += `<div class="menu-block" data-menu-id="${m.id}">
+            <div class="carte-header">
+                <h1>Le Bistrot des Halles</h1>
+                <p>12 rue au Pain — Versailles &nbsp;·&nbsp; Notre sélection du moment</p>
+            </div>
+            <div class="menu-title">${m.name}</div>`;
         visibleCats.forEach(cat => {
             const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
             html += '<div class="cat-block"><div class="cat-title">' + cat.name + '</div>';
@@ -152,97 +153,116 @@ async function downloadPDF() {
     btn.textContent = '⏳ En cours...';
     progress.style.display = 'block';
 
-    // Zone de travail invisible
-    const workZone = document.createElement('div');
-    workZone.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;background:#fdfaf5;font-family:Inter,sans-serif;color:#2d2325;';
-    document.body.appendChild(workZone);
+    // Iframe invisible totalement isolé du document principal
+    const iframe = document.createElement('iframe');
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;border:none;visibility:hidden;';
+    document.body.appendChild(iframe);
+    await new Promise(r => setTimeout(r, 200));
+
+    const idoc = iframe.contentDocument;
+    idoc.open();
+    idoc.write(`<!DOCTYPE html><html><head>
+        <meta charset="UTF-8">
+        <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+        <style>
+        * { box-sizing:border-box; margin:0; padding:0; }
+        body { font-family:'Inter',sans-serif; background:#fdfaf5; color:#2d2325; width:794px; }
+        .page { width:794px; padding:20px 50px; background:#fdfaf5; }
+        .mini-header { text-align:center; padding-bottom:10px; border-bottom:2px solid #601424; margin-bottom:10px; }
+        .mini-header h1 { font-family:'Playfair Display',serif; color:#601424; font-size:1.5rem; letter-spacing:3px; }
+        .mini-header p { font-size:0.7rem; color:#6e5d60; font-style:italic; margin-top:2px; }
+        .menu-title { font-family:'Playfair Display',serif; background:#601424; color:white; font-size:0.95rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; padding:8px 14px; margin-bottom:10px; }
+        .cat-block { margin-bottom:10px; }
+        .cat-title { color:#601424; font-size:0.75rem; font-weight:700; border-bottom:1px solid #b2a48f; padding-bottom:3px; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
+        .prod-row { display:flex; justify-content:space-between; align-items:flex-start; padding:4px 0 5px; border-bottom:1px solid #d4c9b0; gap:12px; }
+        .prod-left { flex:1; min-width:0; }
+        .prod-name { font-size:0.8rem; font-weight:600; color:#2d2325; }
+        .prod-desc { font-size:0.67rem; color:#6e5d60; font-style:italic; margin-top:1px; line-height:1.3; }
+        .prod-price { font-weight:700; color:#601424; white-space:nowrap; font-size:0.8rem; flex-shrink:0; }
+        </style></head><body></body></html>`);
+    idoc.close();
+    await new Promise(r => setTimeout(r, 300));
 
     const cap = async (el) => {
         await new Promise(r => setTimeout(r, 100));
-        return html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false });
-    };
-
-    const toH = (canvas) => (canvas.height * 210) / canvas.width;
-
-    const fillPage = (doc) => {
-        doc.setFillColor(253, 250, 245);
-        doc.rect(0, 0, 210, 297, 'F');
-    };
-
-    const place = (doc, canvas, y) => {
-        const h = toH(canvas);
-        doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, y, 210, h);
-        return h;
+        return html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false, allowTaint: true });
     };
 
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
+        const pageW = 210;
+        const pageH = 297;
+
+        const fillPage = () => {
+            doc.setFillColor(253, 250, 245);
+            doc.rect(0, 0, pageW, pageH, 'F');
+        };
+
         const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
         const selectedMenus = appState.menus.filter(m => checked.includes(m.id));
         let firstPage = true;
 
         for (const menu of selectedMenus) {
-            const origBlock = document.querySelector(`.menu-block[data-menu-id="${menu.id}"]`);
-            if (!origBlock) continue;
+            const cats = appState.categories.filter(c => c.menuId === menu.id);
+            const visibleCats = cats.filter(cat => appState.products.some(p => p.catId === cat.id && !p.isHidden));
+            if (!visibleCats.length) continue;
 
             if (!firstPage) doc.addPage();
             firstPage = false;
-            fillPage(doc);
+            fillPage();
 
-            let y = 6;
+            // Construire le HTML de la page dans l'iframe
+            let html = `<div class="page" id="pg">
+                <div class="mini-header">
+                    <h1>Le Bistrot des Halles</h1>
+                    <p>12 rue au Pain — Versailles</p>
+                </div>
+                <div class="menu-title">${menu.name}</div>`;
 
-            // 1. En-tête compact répété
-            workZone.innerHTML = `
-                <div style="text-align:center;padding:14px 50px 12px;border-bottom:2px solid #601424;margin-bottom:0;">
-                    <div style="font-family:'Playfair Display',Georgia,serif;color:#601424;font-size:1.6rem;font-weight:700;letter-spacing:3px;">Le Bistrot des Halles</div>
-                    <div style="font-size:0.72rem;color:#6e5d60;font-style:italic;margin-top:3px;">12 rue au Pain — Versailles</div>
-                </div>`;
-            const hCanvas = await cap(workZone.firstElementChild);
-            y += place(doc, hCanvas, y) + 4;
-            workZone.innerHTML = '';
+            visibleCats.forEach(cat => {
+                const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
+                html += `<div class="cat-block"><div class="cat-title">${cat.name}</div>`;
+                prods.forEach(p => {
+                    html += `<div class="prod-row">
+                        <div class="prod-left">
+                            <div class="prod-name">${p.name}</div>
+                            ${p.desc ? `<div class="prod-desc">${p.desc}</div>` : ''}
+                        </div>
+                        <div class="prod-price">${parseFloat(p.price).toFixed(2)} €</div>
+                    </div>`;
+                });
+                html += '</div>';
+            });
+            html += '</div>';
 
-            // 2. Titre du menu
-            workZone.innerHTML = `<div style="font-family:'Playfair Display',Georgia,serif;background:#601424;color:white;font-size:1rem;font-weight:700;text-transform:uppercase;letter-spacing:2px;padding:9px 50px;margin:0;">${menu.name}</div>`;
-            const tCanvas = await cap(workZone.firstElementChild);
-            y += place(doc, tCanvas, y) + 6;
-            workZone.innerHTML = '';
+            idoc.body.innerHTML = html;
+            await new Promise(r => setTimeout(r, 200));
 
-            // 3. Mesurer tout le contenu à taille normale dans la zone invisible
-            const contentDiv = document.createElement('div');
-            contentDiv.style.cssText = 'padding:0 50px;width:794px;';
-            const cats = origBlock.querySelectorAll('.cat-block');
-            cats.forEach(cat => contentDiv.appendChild(cat.cloneNode(true)));
-            workZone.appendChild(contentDiv);
-            await new Promise(r => setTimeout(r, 120));
+            const pg = idoc.getElementById('pg');
+            const naturalH = pg.offsetHeight; // hauteur naturelle en px
+            const availableH = 1123; // hauteur A4 en px à 96dpi
 
-            const naturalPx = contentDiv.offsetHeight;
-            const availableMm = 297 - y - 8;
-            const availablePx = availableMm * (794 / 210);
-
-            // 4. Calculer et appliquer la police si nécessaire
-            if (naturalPx > availablePx) {
-                const ratio = availablePx / naturalPx;
-                const base = 13.6 * ratio; // 13.6px ≈ 0.85rem
-                contentDiv.querySelectorAll('.prod-name, .prod-price').forEach(el => el.style.fontSize = base + 'px');
-                contentDiv.querySelectorAll('.prod-desc').forEach(el => el.style.fontSize = (base * 0.84) + 'px');
-                contentDiv.querySelectorAll('.cat-title').forEach(el => el.style.fontSize = (base * 0.96) + 'px');
-                contentDiv.querySelectorAll('.prod-row').forEach(el => el.style.padding = '4px 0 5px');
-                contentDiv.querySelectorAll('.cat-block').forEach(el => el.style.marginBottom = '10px');
-                await new Promise(r => setTimeout(r, 120));
+            // Si le contenu dépasse, réduire via transform scale (invisible pour l'utilisateur)
+            if (naturalH > availableH) {
+                const scale = availableH / naturalH;
+                pg.style.transform = `scale(${scale})`;
+                pg.style.transformOrigin = 'top left';
+                pg.style.width = (794 / scale) + 'px';
+                await new Promise(r => setTimeout(r, 150));
             }
 
-            // 5. Capturer et placer
-            const cCanvas = await cap(contentDiv);
-            place(doc, cCanvas, y);
-            workZone.innerHTML = '';
+            const canvas = await cap(pg);
+            const imgH = (canvas.height * pageW) / canvas.width;
+            doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, imgH);
+            idoc.body.innerHTML = '';
         }
 
         doc.save('bistrot-des-halles-carte.pdf');
     } catch(e) {
         alert('Erreur : ' + e.message);
     } finally {
-        document.body.removeChild(workZone);
+        document.body.removeChild(iframe);
         btn.disabled = false;
         btn.textContent = '⬇️ Télécharger PDF';
         progress.style.display = 'none';
