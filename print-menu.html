@@ -153,9 +153,8 @@ async function downloadPDF() {
     btn.textContent = '⏳ En cours...';
     progress.style.display = 'block';
 
-    // Iframe invisible totalement isolé du document principal
     const iframe = document.createElement('iframe');
-    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:1123px;border:none;visibility:hidden;';
+    iframe.style.cssText = 'position:fixed;left:-9999px;top:0;width:794px;height:2000px;border:none;visibility:hidden;';
     document.body.appendChild(iframe);
     await new Promise(r => setTimeout(r, 200));
 
@@ -169,9 +168,10 @@ async function downloadPDF() {
         body { font-family:'Inter',sans-serif; background:#fdfaf5; color:#2d2325; width:794px; }
         .page { width:794px; padding:20px 50px; background:#fdfaf5; }
         .mini-header { text-align:center; padding-bottom:10px; border-bottom:2px solid #601424; margin-bottom:10px; }
-        .mini-header h1 { font-family:'Playfair Display',serif; color:#601424; font-size:1.5rem; letter-spacing:3px; }
+        .mini-header h1 { font-family:'Playfair Display',Georgia,serif; color:#601424; font-size:1.5rem; letter-spacing:3px; }
         .mini-header p { font-size:0.7rem; color:#6e5d60; font-style:italic; margin-top:2px; }
-        .menu-title { font-family:'Playfair Display',serif; background:#601424; color:white; font-size:0.95rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; padding:8px 14px; margin-bottom:10px; }
+        .menu-title { font-family:'Playfair Display',Georgia,serif; background:#601424; color:white; font-size:0.95rem; font-weight:700; text-transform:uppercase; letter-spacing:2px; padding:8px 14px; margin-bottom:10px; }
+        .cont-title { font-family:'Playfair Display',Georgia,serif; background:#8a2030; color:white; font-size:0.8rem; font-weight:700; text-transform:uppercase; letter-spacing:1px; padding:5px 14px; margin-bottom:10px; font-style:italic; }
         .cat-block { margin-bottom:10px; }
         .cat-title { color:#601424; font-size:0.75rem; font-weight:700; border-bottom:1px solid #b2a48f; padding-bottom:3px; margin-bottom:6px; text-transform:uppercase; letter-spacing:1px; }
         .prod-row { display:flex; justify-content:space-between; align-items:flex-start; padding:4px 0 5px; border-bottom:1px solid #d4c9b0; gap:12px; }
@@ -188,17 +188,35 @@ async function downloadPDF() {
         return html2canvas(el, { scale: 2, useCORS: true, backgroundColor: '#fdfaf5', logging: false, allowTaint: true });
     };
 
+    const A4_PX = 1123;
+
+    const buildPage = (menuName, catsHTML, isContinu) => `
+        <div class="page" id="pg">
+            <div class="mini-header">
+                <h1>Le Bistrot des Halles</h1>
+                <p>12 rue au Pain — Versailles</p>
+            </div>
+            <div class="${isContinu ? 'cont-title' : 'menu-title'}">${menuName}${isContinu ? ' (suite)' : ''}</div>
+            ${catsHTML}
+        </div>`;
+
+    const flushPage = async (doc, menuName, catsHTML, isContinu, firstPage) => {
+        if (!firstPage) doc.addPage();
+        doc.setFillColor(253, 250, 245);
+        doc.rect(0, 0, 210, 297, 'F');
+        idoc.body.innerHTML = buildPage(menuName, catsHTML, isContinu);
+        await new Promise(r => setTimeout(r, 100));
+        const pg = idoc.getElementById('pg');
+        const canvas = await cap(pg);
+        const imgH = (canvas.height * 210) / canvas.width;
+        doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, 210, imgH);
+        idoc.body.innerHTML = '';
+        return false; // firstPage devient false après
+    };
+
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-        const pageW = 210;
-        const pageH = 297;
-
-        const fillPage = () => {
-            doc.setFillColor(253, 250, 245);
-            doc.rect(0, 0, pageW, pageH, 'F');
-        };
-
         const checked = Array.from(document.querySelectorAll('#menu-checkboxes input:checked')).map(i => i.value);
         const selectedMenus = appState.menus.filter(m => checked.includes(m.id));
         let firstPage = true;
@@ -208,23 +226,12 @@ async function downloadPDF() {
             const visibleCats = cats.filter(cat => appState.products.some(p => p.catId === cat.id && !p.isHidden));
             if (!visibleCats.length) continue;
 
-            if (!firstPage) doc.addPage();
-            firstPage = false;
-            fillPage();
-
-            // Construire le HTML de la page dans l'iframe
-            let html = `<div class="page" id="pg">
-                <div class="mini-header">
-                    <h1>Le Bistrot des Halles</h1>
-                    <p>12 rue au Pain — Versailles</p>
-                </div>
-                <div class="menu-title">${menu.name}</div>`;
-
-            visibleCats.forEach(cat => {
+            // Générer HTML de chaque catégorie
+            const allCatsHTML = visibleCats.map(cat => {
                 const prods = appState.products.filter(p => p.catId === cat.id && !p.isHidden);
-                html += `<div class="cat-block"><div class="cat-title">${cat.name}</div>`;
+                let h = `<div class="cat-block"><div class="cat-title">${cat.name}</div>`;
                 prods.forEach(p => {
-                    html += `<div class="prod-row">
+                    h += `<div class="prod-row">
                         <div class="prod-left">
                             <div class="prod-name">${p.name}</div>
                             ${p.desc ? `<div class="prod-desc">${p.desc}</div>` : ''}
@@ -232,30 +239,34 @@ async function downloadPDF() {
                         <div class="prod-price">${parseFloat(p.price).toFixed(2)} €</div>
                     </div>`;
                 });
-                html += '</div>';
+                return h + '</div>';
             });
-            html += '</div>';
 
-            idoc.body.innerHTML = html;
-            await new Promise(r => setTimeout(r, 200));
+            let currentHTML = '';
+            let isContinu = false;
 
-            const pg = idoc.getElementById('pg');
-            const naturalH = pg.offsetHeight; // hauteur naturelle en px
-            const availableH = 1123; // hauteur A4 en px à 96dpi
+            for (let ci = 0; ci < allCatsHTML.length; ci++) {
+                const testHTML = currentHTML + allCatsHTML[ci];
 
-            // Si le contenu dépasse, réduire via transform scale (invisible pour l'utilisateur)
-            if (naturalH > availableH) {
-                const scale = availableH / naturalH;
-                pg.style.transform = `scale(${scale})`;
-                pg.style.transformOrigin = 'top left';
-                pg.style.width = (794 / scale) + 'px';
-                await new Promise(r => setTimeout(r, 150));
+                // Tester si ça tient
+                idoc.body.innerHTML = buildPage(menu.name, testHTML, isContinu);
+                await new Promise(r => setTimeout(r, 60));
+                const pg = idoc.getElementById('pg');
+
+                if (pg.offsetHeight > A4_PX && currentHTML !== '') {
+                    // Flusher page courante sans la catégorie actuelle
+                    firstPage = await flushPage(doc, menu.name, currentHTML, isContinu, firstPage);
+                    currentHTML = allCatsHTML[ci];
+                    isContinu = true;
+                } else {
+                    currentHTML = testHTML;
+                }
             }
 
-            const canvas = await cap(pg);
-            const imgH = (canvas.height * pageW) / canvas.width;
-            doc.addImage(canvas.toDataURL('image/jpeg', 0.95), 'JPEG', 0, 0, pageW, imgH);
-            idoc.body.innerHTML = '';
+            // Flusher la dernière page
+            if (currentHTML) {
+                firstPage = await flushPage(doc, menu.name, currentHTML, isContinu, firstPage);
+            }
         }
 
         doc.save('bistrot-des-halles-carte.pdf');
@@ -268,6 +279,7 @@ async function downloadPDF() {
         progress.style.display = 'none';
     }
 }
+
 
 loadAndRender();
 </script>
